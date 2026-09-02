@@ -55,3 +55,107 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+
+## ---------------------------------------------------------------------------
+## Frontend: Node / Bun / Next.js
+## ---------------------------------------------------------------------------
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Next.js build output
+.next/
+out/
+next-env.d.ts
+
+# Bun
+.bun/
+bun-debug.log*
+
+# Test and coverage output
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+blob-report/
+.playwright/
+
+# Caches
+.eslintcache
+.turbo/
+*.tsbuildinfo
+
+## ---------------------------------------------------------------------------
+## Environment variables
+## ---------------------------------------------------------------------------
+## .env is already ignored above. These cover the Next.js variants.
+## .env.example IS tracked on purpose - it documents every required variable.
+
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+## ---------------------------------------------------------------------------
+## Docker
+## ---------------------------------------------------------------------------
+
+# Local compose overrides are per-developer and must not be committed.
+docker-compose.override.yml
+
+# Bind-mounted volume data, if a volume is ever pointed at the repo.
+.docker-data/
+postgres-data/
+
+## ---------------------------------------------------------------------------
+## Editors and OS
+## ---------------------------------------------------------------------------
+
+.vs/
+.idea/
+*.swp
+*.user
+*.suo
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# VS Code: keep shared settings, ignore personal ones.
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+
+## ---------------------------------------------------------------------------
+## Claude Code
+## ---------------------------------------------------------------------------
+## .claude/ is tracked on purpose - CLAUDE.md, skills and shared settings are
+## part of the project. Only personal material is ignored.
+
+.claude/settings.local.json
+.claude/skills/worklog/
+
+## ---------------------------------------------------------------------------
+## Personal and local-only material
+## ---------------------------------------------------------------------------
+## Notes, planning documents and scratch files that belong to the developer
+## rather than to the project.
+
+*.local.md
+NOTES.md
+/notater/
+docs/**/*.pdf
+
+## ---------------------------------------------------------------------------
+## Secrets - never commit these
+## ---------------------------------------------------------------------------
+
+*.pem
+*.key
+*.pfx
+appsettings.Local.json
+appsettings.*.Local.json
+secrets.json
