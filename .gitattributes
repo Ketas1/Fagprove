@@ -1,0 +1,31 @@
+# Normalise line endings: LF in the repository, native in the working tree.
+# core.autocrlf is true on this machine, so this keeps the history clean
+# regardless of which OS a contributor works on.
+* text=auto eol=lf
+
+# Windows-only scripts must keep CRLF to stay executable.
+*.bat        text eol=crlf
+*.cmd        text eol=crlf
+*.ps1        text eol=crlf
+
+# Shell scripts must keep LF or they break inside Docker containers.
+*.sh         text eol=lf
+
+# Treat these as binary so git never tries to diff or convert them.
+*.png        binary
+*.jpg        binary
+*.jpeg       binary
+*.gif        binary
+*.webp       binary
+*.ico        binary
+*.pdf        binary
+*.woff       binary
+*.woff2      binary
+*.snk        binary
+*.dll        binary
+
+# Generated files: collapse in diffs and exclude from language statistics.
+bun.lock     linguist-generated=true -diff
+bun.lockb    binary linguist-generated=true -diff
+package-lock.json linguist-generated=true -diff
+*/Migrations/*.Designer.cs linguist-generated=true -diff

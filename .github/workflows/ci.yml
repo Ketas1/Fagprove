@@ -1,0 +1,116 @@
+name: CI
+
+# Builds and tests both layers on every push and pull request, so a broken
+# commit is caught immediately rather than discovered later.
+#
+# The detect job lets this pipeline exist from day 2, before the projects are
+# scaffolded: the backend and frontend jobs skip themselves while their folder
+# has no project in it, instead of failing the build. Once both projects exist
+# the detect job can be removed and the `if:` conditions dropped.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to the same branch cancels the previous run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  detect:
+    name: Detect scaffolded projects
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.check.outputs.backend }}
+      frontend: ${{ steps.check.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: check
+        name: Check which projects exist
+        run: |
+          if [ -n "$(find backend -name '*.csproj' -print -quit 2>/dev/null)" ]; then
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "backend=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::backend/ has no .csproj yet - skipping backend job."
+          fi
+
+          if [ -f frontend/package.json ]; then
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frontend=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::frontend/package.json not found yet - skipping frontend job."
+          fi
+
+  backend:
+    name: Backend - build and test
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --configuration Release --no-restore -warnaserror
+
+      # Integration tests start their own PostgreSQL through Testcontainers,
+      # using the Docker daemon that is already available on the runner.
+      - name: Test
+        run: dotnet test --configuration Release --no-build --verbosity normal
+
+      - name: Check formatting
+        run: dotnet format --verify-no-changes --no-restore
+
+  frontend:
+    name: Frontend - lint and build
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Lint
+        run: bun run lint
+
+      # Build-time environment variables. These are placeholders: the build only
+      # needs them to be present, and no real secret belongs in CI for this.
+      - name: Build
+        run: bun run build
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:5080
+          AUTH0_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
+          APP_BASE_URL: http://localhost:3000
+          AUTH0_DOMAIN: example.eu.auth0.com
+          AUTH0_CLIENT_ID: ci-placeholder
+          AUTH0_CLIENT_SECRET: ci-placeholder
+          AUTH0_AUDIENCE: https://api.sportforalle.no

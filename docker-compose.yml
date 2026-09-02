@@ -1,0 +1,82 @@
+# Sport For Alle - local development stack
+#
+# Right now only the database service is active, which is what day 2 needs:
+# it lets EF Core migrations run and the API be developed against a real
+# PostgreSQL before anything is containerised.
+#
+#   docker compose up -d db
+#
+# The api and frontend services below are written and ready. Uncomment each one
+# once that project has been scaffolded and has a Dockerfile, at which point
+# `docker compose up --build` starts all three layers together.
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: sportforalle-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sportforalle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
+      POSTGRES_DB: ${POSTGRES_DB:-sportforalle}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      # The api service waits on this, so it does not start before the database
+      # is actually accepting connections.
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-sportforalle} -d ${POSTGRES_DB:-sportforalle}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+  # --- Uncomment once backend/ is scaffolded and has a Dockerfile -------------
+  #
+  # api:
+  #   build:
+  #     context: ./backend
+  #     dockerfile: Dockerfile
+  #   container_name: sportforalle-api
+  #   restart: unless-stopped
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #   environment:
+  #     ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+  #     ASPNETCORE_HTTP_PORTS: 8080
+  #     # Host is the compose service name, not localhost - inside the network
+  #     # the database is reachable as "db".
+  #     ConnectionStrings__DefaultConnection: >-
+  #       Host=db;Port=5432;Database=${POSTGRES_DB:-sportforalle};Username=${POSTGRES_USER:-sportforalle};Password=${POSTGRES_PASSWORD:-change-me-locally}
+  #     Auth0__Domain: ${AUTH0_DOMAIN}
+  #     Auth0__Audience: ${AUTH0_AUDIENCE}
+  #     Cors__AllowedOrigins: http://localhost:${FRONTEND_PORT:-3000}
+  #   ports:
+  #     - '${BACKEND_PORT:-5080}:8080'
+  #
+  # --- Uncomment once frontend/ is scaffolded and has a Dockerfile ------------
+  #
+  # frontend:
+  #   build:
+  #     context: ./frontend
+  #     dockerfile: Dockerfile
+  #   container_name: sportforalle-frontend
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - api
+  #   environment:
+  #     # Read by the browser, so it must be the host-visible address, not "api".
+  #     NEXT_PUBLIC_API_BASE_URL: http://localhost:${BACKEND_PORT:-5080}
+  #     AUTH0_SECRET: ${AUTH0_SECRET}
+  #     APP_BASE_URL: http://localhost:${FRONTEND_PORT:-3000}
+  #     AUTH0_DOMAIN: ${AUTH0_DOMAIN}
+  #     AUTH0_CLIENT_ID: ${AUTH0_CLIENT_ID}
+  #     AUTH0_CLIENT_SECRET: ${AUTH0_CLIENT_SECRET}
+  #     AUTH0_AUDIENCE: ${AUTH0_AUDIENCE}
+  #   ports:
+  #     - '${FRONTEND_PORT:-3000}:3000'
+
+volumes:
+  db-data:
