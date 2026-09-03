@@ -2,6 +2,7 @@ using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
 
@@ -28,11 +29,25 @@ builder.Services.AddSingleton<IClock, SystemClock>();
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-// Presence only, never the value - it carries the database password.
-Console.WriteLine(
-    string.IsNullOrEmpty(connectionString)
-        ? "[db] connection string NOT found"
-        : "[db] connection string confirmed");
+// Host and port only, never the password - printed so a wrong value (the
+// Docker-internal "db" instead of "localhost", for example) is visible
+// immediately instead of only showing up as "database": "down" later.
+if (string.IsNullOrEmpty(connectionString))
+{
+    Console.WriteLine("❌ [db] connection string not found");
+}
+else
+{
+    try
+    {
+        NpgsqlConnectionStringBuilder parsed = new(connectionString);
+        Console.WriteLine($"✓ [db] connection string confirmed - host={parsed.Host} port={parsed.Port}");
+    }
+    catch (Exception exception)
+    {
+        Console.WriteLine($"❌ [db] connection string present but could not be parsed: {exception.Message}");
+    }
+}
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
 
