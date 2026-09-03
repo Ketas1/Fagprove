@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using SportForAlle.Tests.TestSupport;
 
 namespace SportForAlle.Tests.Controllers;
 
@@ -13,19 +14,23 @@ public class HealthEndpointTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
 {
     [Fact]
-    public async Task Health_endpoint_returns_200()
+    public async Task Health_endpoint_without_a_token_returns_401()
     {
         HttpClient client = factory.CreateClient();
 
         HttpResponseMessage response = await client.GetAsync("/api/health");
 
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        // Every endpoint requires authentication by default - see
+        // docs/06-autentisering.md, "Beskyttelse av backend". This is one of
+        // the highest-value tests in the project per docs/07-testing.md.
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
     [Fact]
-    public async Task Health_endpoint_reports_a_status()
+    public async Task Health_endpoint_reports_a_status_once_authenticated()
     {
-        HttpClient client = factory.CreateClient();
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
 
         HealthPayload? payload = await client.GetFromJsonAsync<HealthPayload>("/api/health");
 

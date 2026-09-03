@@ -44,6 +44,15 @@ Frontend bruker `reason` til å vise riktig forklaring til den ansatte.
 ## Endepunkter
 
 > Fyll ut etter hvert som de implementeres. Foreslått inndeling under.
+> **Rolle-kolonnen i tabellene er planlagt, ikke håndhevet ennå** - se
+> `06-autentisering.md`. Alle endepunkter krever i dag kun at brukeren er
+> innlogget; det finnes ingen rollesjekk.
+
+### Drift
+
+| Metode | Rute | Rolle | Beskrivelse |
+| --- | --- | --- | --- |
+| `GET` | `/api/health` | Enhver innlogget bruker | Rapporterer om API-et kjører og om databasen er tilgjengelig. Krever autentisering, som alle andre endepunkter. |
 
 ### Utstyr
 

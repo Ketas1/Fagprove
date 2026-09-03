@@ -50,6 +50,7 @@ Tre grunner:
 | Microsoft.NET.Test.Sdk | 17.14.1 | MIT | |
 | coverlet.collector | 6.0.4 | MIT | |
 | DotNetEnv | 3.2.0 | MIT | |
+| Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.4 | MIT | |
 | Testcontainers | ikke installert | MIT | |
 
 > EF Core er låst til **10.0.4**, ikke nyeste patch. Npgsql-provideren 10.0.3 er
@@ -71,7 +72,20 @@ Tre grunner:
 | @testing-library/react | 16.3.3 | MIT | |
 | @testing-library/jest-dom | 7.0.1 | MIT | |
 | @auth0/nextjs-auth0 | 4.28.0 | MIT | |
+| shadcn (CLI, dev-avhengighet) | 4.20.1 | MIT | |
+| @base-ui/react | 1.7.0 | MIT | |
+| class-variance-authority | 0.7.1 | Apache 2.0 | |
+| clsx | 2.1.1 | MIT | |
+| tailwind-merge | 3.6.0 | MIT | |
+| lucide-react | 1.40.0 | ISC | |
+| tw-animate-css | 1.4.0 | MIT | |
 | Bun | 1.3.6 | MIT | |
+
+> shadcn er ikke ett bibliotek som installeres og importeres, men en CLI som
+> kopierer komponentkildekode inn i `src/components/ui/`. Radene over er de
+> faktiske kjøretidsavhengighetene komponentene bruker (Base UI som
+> tilgjengelig, ustylet fundament), ikke shadcn-prosjektet selv. Se
+> [ADR-0016](./adr/0016-shadcn-ui.md).
 
 ### Database og drift
 

@@ -8,4 +8,12 @@ import { Auth0Client } from "@auth0/nextjs-auth0/server";
 // docs/11-utviklingsmiljo.md.
 loadEnvConfig(path.join(process.cwd(), ".."));
 
-export const auth0 = new Auth0Client();
+// AUTH0_AUDIENCE is not one of the environment variables the SDK reads on
+// its own (unlike AUTH0_DOMAIN/AUTH0_CLIENT_ID/AUTH0_SECRET) - it must be
+// passed explicitly, or Auth0 issues an opaque token for the default
+// audience instead of a JWT access token the API can validate.
+export const auth0 = new Auth0Client({
+  authorizationParameters: {
+    audience: process.env.AUTH0_AUDIENCE,
+  },
+});

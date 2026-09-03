@@ -112,13 +112,19 @@ bun dev
 
 | Tjeneste | Adresse |
 | --- | --- |
-| Frontend | http://localhost:3000 |
+| Frontend (innlogging) | http://localhost:3000 |
+| Frontend (dashbord, krever innlogging) | http://localhost:3000/dashboard |
 | API | http://localhost:5080 |
 | API-dokumentasjon | http://localhost:5080/openapi/v1.json |
 | Database | localhost:5433 |
 
-Forsiden viser status for API og database, slik at det er lett å se om alle tre
-lagene henger sammen.
+Alle endepunkter i API-et krever autentisering som standard, **inkludert**
+`/openapi/v1.json` - å åpne den direkte i nettleseren uinnlogget gir `401`,
+ikke spesifikasjonen. Se [`06-autentisering.md`](./06-autentisering.md).
+
+Dashbordet viser status for API og database, slik at det er lett å se om alle
+tre lagene henger sammen - hentet gjennom frontendens egen proxy, se
+[ADR-0015](./adr/0015-proxied-backend-for-frontend.md).
 
 ### Hvorfor databasen ligger på port 5433
 

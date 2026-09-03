@@ -1,4 +1,6 @@
 using DotNetEnv;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
@@ -24,18 +26,62 @@ builder.Services.AddOpenApi();
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
-const string frontendCorsPolicy = "Frontend";
+// Presence only, never the value - it carries the database password.
+Console.WriteLine(
+    string.IsNullOrEmpty(connectionString)
+        ? "[db] connection string NOT found"
+        : "[db] connection string confirmed");
 
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy(frontendCorsPolicy, policy => policy
-        .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
-        .AllowAnyHeader()
-        .AllowAnyMethod());
-});
+builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString));
+
+// The frontend never calls this API from the browser - it proxies every
+// request server-side and attaches the token itself, see
+// docs/11-utviklingsmiljo.md and ADR-0015. There is deliberately no CORS
+// policy: nothing but that proxy is ever a cross-origin caller.
+string authority = $"https://{builder.Configuration["Auth0:Domain"]}/";
+string? audience = builder.Configuration["Auth0:Audience"];
+
+// Neither value is a secret - printed once at startup so a misconfigured
+// Auth0:Domain/Auth0:Audience is visible immediately instead of only
+// showing up as an unexplained 401 later.
+Console.WriteLine($"[auth] JWT bearer authority={authority} audience={audience}");
+
+builder.Services
+    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.Authority = authority;
+        options.Audience = audience;
+        options.Events = new JwtBearerEvents
+        {
+            // No token contents or personal data logged here - just why the
+            // handler rejected or challenged a request, which is otherwise
+            // invisible (a wrong Auth0:Domain, for example, silently
+            // rejects every token with no clue as to why).
+            OnAuthenticationFailed = context =>
+            {
+                Console.Error.WriteLine($"[auth] token rejected: {context.Exception}");
+                return Task.CompletedTask;
+            },
+            OnChallenge = context =>
+            {
+                Console.Error.WriteLine(
+                    $"[auth] challenge issued. error={context.Error} description={context.ErrorDescription}");
+                return Task.CompletedTask;
+            },
+        };
+    });
+
+// Every endpoint requires authentication by default - exceptions must be
+// explicit ([AllowAnonymous]), not the other way around. See
+// docs/06-autentisering.md, "Beskyttelse av backend".
+builder.Services
+    .AddAuthorizationBuilder()
+    .SetFallbackPolicy(new AuthorizationPolicyBuilder()
+        .RequireAuthenticatedUser()
+        .Build());
 
 WebApplication app = builder.Build();
 
@@ -44,7 +90,8 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors(frontendCorsPolicy);
+app.UseAuthentication();
+app.UseAuthorization();
 app.MapControllers();
 
 await app.RunAsync();
