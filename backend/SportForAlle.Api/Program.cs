@@ -1,19 +1,22 @@
 using Microsoft.EntityFrameworkCore;
 using SportForAlle.Api.Data;
+using SportForAlle.Api.Helpers;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddControllers();
 builder.Services.AddOpenApi();
 
+builder.Services.AddSingleton<IClock, SystemClock>();
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-const string FrontendCorsPolicy = "Frontend";
+const string frontendCorsPolicy = "Frontend";
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(FrontendCorsPolicy, policy => policy
+    options.AddPolicy(frontendCorsPolicy, policy => policy
         .WithOrigins(builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [])
         .AllowAnyHeader()
         .AllowAnyMethod());
@@ -26,13 +29,7 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-app.UseCors(FrontendCorsPolicy);
+app.UseCors(frontendCorsPolicy);
 app.MapControllers();
 
 await app.RunAsync();
-
-/// <summary>
-/// Exposed so the integration tests can use WebApplicationFactory against this
-/// entry point. Top-level statements generate an internal Program class otherwise.
-/// </summary>
-public partial class Program;

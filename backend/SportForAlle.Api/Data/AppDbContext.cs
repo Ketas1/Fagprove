@@ -11,6 +11,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<EquipmentCategory> EquipmentCategories => Set<EquipmentCategory>();
 
+    public DbSet<Staff> Staff => Set<Staff>();
+
+    public DbSet<Guardian> Guardians => Set<Guardian>();
+
+    public DbSet<Borrower> Borrowers => Set<Borrower>();
+
+    public DbSet<Equipment> Equipment => Set<Equipment>();
+
+    public DbSet<Loan> Loans => Set<Loan>();
+
+    public DbSet<ContactAttempt> ContactAttempts => Set<ContactAttempt>();
+
+    public DbSet<Note> Notes => Set<Note>();
+
+    public DbSet<Ban> Bans => Set<Ban>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

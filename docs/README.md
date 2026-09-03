@@ -52,7 +52,7 @@ oversettelsene.
 | [01-losningsbeskrivelse.md](./01-losningsbeskrivelse.md) | Problemene, målene, aktørene og hvordan systemet løser dem | Ferdig |
 | [02-arkitektur.md](./02-arkitektur.md) | Systemarkitektur, lagdeling og dataflyt | Ferdig |
 | [03-domenemodell.md](./03-domenemodell.md) | Domenemodell, tilstandsmaskiner, forretningsregler og ordliste | Ferdig |
-| [04-databasedesign.md](./04-databasedesign.md) | Databaseskjema, tabeller, relasjoner og migrasjoner | Ikke påbegynt |
+| [04-databasedesign.md](./04-databasedesign.md) | Databaseskjema, tabeller, relasjoner og migrasjoner | Påbegynt |
 | [05-api.md](./05-api.md) | Backend-API, endepunkter, feilhåndtering | Ikke påbegynt |
 | [06-autentisering.md](./06-autentisering.md) | Authentication og authorization med Auth0 | Ikke påbegynt |
 | [07-testing.md](./07-testing.md) | Teststrategi, testnivåer og hva som testes hvor | Påbegynt |

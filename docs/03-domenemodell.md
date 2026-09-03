@@ -29,7 +29,7 @@ erDiagram
 | `Equipment` | Utstyr | En fysisk gjenstand med internt serienummer, kategori, tilstand og status. |
 | `EquipmentCategory` | Kategori | Gruppering av utstyr, brukt i rapportering (for eksempel ski, sykkel, skøyter). |
 | `Loan` | Utlån | Kobling mellom et barn og et utstyr i en periode, med forventet returdato. |
-| `LoanPhoto` | Bilde | Bilde av utstyret, tatt før utlån og ved retur. Dokumentasjonsgrunnlag. |
+| `LoanPhoto` | Bilde | Bilde av utstyret, tatt før utlån og ved retur. Dokumentasjonsgrunnlag. **Ikke bygget ennå** - krever et valg av lagringsløsning (blob/bøtte) som ikke er tatt. Se [`04-databasedesign.md`](./04-databasedesign.md). |
 | `ContactAttempt` | Kontaktforsøk | Ett forsøk på å nå foresatt om et forfalt lån, med dato, metode og resultat. |
 | `Note` | Notat | Fritekstnotat som ansatt skriver om en låntaker. |
 | `Ban` | Utestengelse | En periode der låntakeren ikke får låne, med årsak og eventuell gebyrbetaling. |
@@ -230,10 +230,11 @@ er speilet i `CLAUDE.md`.
 | Antall dager for sent | `DaysLate` |
 | Utestengt | `Banned` |
 | Utestengelse | `Ban` |
-| Gebyr | `Fee` |
+| Gebyr | `Ban.FeePaidAt` (felt, ikke egen type) |
 | Kontaktforsøk | `ContactAttempt` |
 | Notat | `Note` |
-| Tilstand | `Condition` |
+| Tilstand | `EquipmentCondition` |
+| Låntakerstatus | `BorrowerStatus` |
 | Serienummer | `SerialNumber` |
 | Rapport | `Report` |
 | Kommune | `Municipality` |
