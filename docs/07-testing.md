@@ -10,12 +10,19 @@ feil.
 
 ## Testnivåer
 
-| Nivå | Verktøy | Dekker | Kjøres |
+| Nivå | Verktøy | Dekker | Status |
 | --- | --- | --- | --- |
-| Enhetstester | xUnit | Forretningsregler og tilstandsoverganger i domenelaget | Hver commit |
-| Integrasjonstester | xUnit + Testcontainers | API-endepunkter mot ekte PostgreSQL | Hver commit |
-| End to end | Playwright | Hele arbeidsflyten gjennom grensesnittet | Hver commit, og manuelt |
-| Statisk analyse | `dotnet build`, ESLint, `dotnet format` | Kompileringsfeil, lintfeil, formatering | Hver commit |
+| Enhetstester backend | xUnit | Forretningsregler og tilstandsoverganger på entitetene | På plass |
+| EF-modelltester | xUnit | At EF-modellen bygger og at konfigurasjonene er tatt i bruk | På plass |
+| Endepunkttester | xUnit + `WebApplicationFactory` | At API-et starter og ruter riktig | På plass |
+| Enhetstester frontend | Jest + Testing Library | Komponenter og logikk i `lib/` | På plass |
+| Integrasjonstester mot database | xUnit + Testcontainers | Endepunkter mot ekte PostgreSQL | Ikke satt opp |
+| End to end | Ikke valgt | Hele arbeidsflyten gjennom grensesnittet | Ikke satt opp |
+| Statisk analyse | `dotnet build -warnaserror`, `dotnet format`, ESLint | Kompileringsfeil, formatering, lintfeil | På plass |
+
+Entitetstestene er de viktigste: fordi entitetene eier sin egen tilstand, kan
+forretningsreglene testes uten database, HTTP eller Auth0. Se
+[ADR-0012](./adr/0012-lagdelt-monolitt.md).
 
 ## Hva som prioriteres
 

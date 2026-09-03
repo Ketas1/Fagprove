@@ -10,9 +10,12 @@ PostgreSQL, se [ADR-0004](./adr/0004-postgresql.md).
 
 ## Tilnærming: Code First
 
-Skjemaet defineres som C#-klasser i `SportForAlle.Domain`, og genereres til
+Skjemaet defineres som C#-klasser i `SportForAlle.Api/Models/`, med
+tabellkonfigurasjon i `SportForAlle.Api/Data/Configurations/`, og genereres til
 tabeller med EF Core-migrasjoner. Databasen endres aldri manuelt - alle endringer
 går gjennom en migrasjon som ligger i versjonskontroll sammen med koden.
+
+Migrasjonene ligger i `SportForAlle.Api/Data/Migrations/`.
 
 Se [ADR-0005](./adr/0005-ef-core-code-first.md).
 
@@ -73,17 +76,18 @@ Se [ADR-0005](./adr/0005-ef-core-code-first.md).
 
 ```bash
 dotnet ef migrations add <Navn> \
-  --project src/SportForAlle.Infrastructure \
-  --startup-project src/SportForAlle.Api
+  --project SportForAlle.Api \
+  --startup-project SportForAlle.Api \
+  --output-dir Data/Migrations
 
 dotnet ef database update \
-  --project src/SportForAlle.Infrastructure \
-  --startup-project src/SportForAlle.Api
+  --project SportForAlle.Api \
+  --startup-project SportForAlle.Api
 ```
 
 | Migrasjon | Dato | Endring |
 | --- | --- | --- |
-| | | |
+| `InitialCreate` | 2026-09-02 | Oppretter `EquipmentCategories` med `Id` (identity) og `Name` (`varchar(100)`, unik). Første migrasjon, laget for å verifisere at EF Core, migrasjoner og Docker-databasen henger sammen. |
 
 ## Testdata
 

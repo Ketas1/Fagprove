@@ -102,6 +102,9 @@ jobs:
       - name: Lint
         run: bun run lint
 
+      - name: Test
+        run: bun run test
+
       # Build-time environment variables. These are placeholders: the build only
       # needs them to be present, and no real secret belongs in CI for this.
       - name: Build

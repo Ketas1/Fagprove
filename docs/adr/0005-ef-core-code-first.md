@@ -12,7 +12,7 @@ utvikler som overtar prosjektet senere.
 
 ## Beslutning
 
-Datamodellen defineres som C#-klasser i `SportForAlle.Domain`, og databasen
+Datamodellen defineres som C#-klasser i `SportForAlle.Api/Models/`, og databasen
 genereres fra dem med EF Core-migrasjoner (Code First). Databasen endres aldri
 manuelt.
 

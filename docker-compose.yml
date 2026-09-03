@@ -19,8 +19,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-sportforalle}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me-locally}
       POSTGRES_DB: ${POSTGRES_DB:-sportforalle}
+    # Published on 5433 because a natively installed PostgreSQL commonly occupies
+    # 5432. Inside the compose network the database is still reached on 5432.
     ports:
-      - '${POSTGRES_PORT:-5432}:5432'
+      - '${POSTGRES_PORT:-5433}:5432'
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:

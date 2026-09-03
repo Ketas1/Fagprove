@@ -11,10 +11,12 @@ er satt opp, og hvordan systemet kjøres lokalt.
 | Styling | Tailwind CSS | Rask UI-utvikling, som er viktig med en kort utviklingsperiode. |
 | Pakkehåndtering frontend | Bun | Rask installasjon og kjøring. |
 | Backend | .NET 10, ASP.NET Core Web API | Mest erfaring, godt egnet til API-er og databehandling, stort økosystem. [ADR-0002](./adr/0002-dotnet-backend.md) |
+| Backend-struktur | Lagdelt monolitt, ett prosjekt | Færre filer og mindre wiring enn Clean Architecture, uten å miste testbare forretningsregler. [ADR-0012](./adr/0012-lagdelt-monolitt.md) |
 | ORM | Entity Framework Core (Code First) | Datamodellen defineres som kode og versjoneres med applikasjonen. [ADR-0005](./adr/0005-ef-core-code-first.md) |
 | Database | PostgreSQL | Relasjonsdatabase. [ADR-0004](./adr/0004-postgresql.md) |
 | Autentisering | Auth0 | Ferdig identitetsløsning, unngår egen passordhåndtering. [ADR-0006](./adr/0006-auth0.md) |
 | Testing backend | xUnit | Godt integrert med .NET. [ADR-0009](./adr/0009-xunit.md) |
+| Testing frontend | Jest og Testing Library | Offisielt støttet av Next.js gjennom `next/jest`, og kjent for de fleste utviklere. |
 | Kjøremiljø | Docker Compose | Likt miljø hver gang, alle tre lag samtidig. [ADR-0007](./adr/0007-docker.md) |
 | CI | GitHub Actions | Bygg og test på hver commit. [ADR-0008](./adr/0008-github-actions.md) |
 | Versjonskontroll | Git og GitHub | Historikk og oversikt over endringer. |
@@ -32,14 +34,20 @@ Fagprove/
 ├── .gitattributes             Linjeskift og binærfiler
 │
 ├── backend/                   .NET-løsning
-│   ├── src/
-│   │   ├── SportForAlle.Api/             Endepunkter, DTO-er, autorisasjon
-│   │   ├── SportForAlle.Application/     Bruksmønstre
-│   │   ├── SportForAlle.Domain/          Entiteter og forretningsregler
-│   │   └── SportForAlle.Infrastructure/  EF Core, e-post, fillagring
-│   └── tests/
-│       ├── SportForAlle.Domain.Tests/          Enhetstester
-│       └── SportForAlle.Api.IntegrationTests/  Integrasjonstester
+│   ├── SportForAlle.sln
+│   ├── SportForAlle.Api/      Selve applikasjonen, lagdelt i mapper
+│   │   ├── Program.cs
+│   │   ├── Controllers/       HTTP-endepunkter
+│   │   ├── Services/          Bruksmønstre, eneste bruker av AppDbContext
+│   │   ├── Models/            Entiteter med tilstand og forretningsregler
+│   │   ├── Dtos/              Objekter som krysser API-grensen
+│   │   ├── Data/              AppDbContext, konfigurasjon, migrasjoner
+│   │   ├── Mapping/           Entitet til DTO
+│   │   ├── Validation/        Validering av forespørsler
+│   │   ├── Middleware/        Tverrgående håndtering
+│   │   ├── Configuration/     Sterkt typede innstillinger
+│   │   └── Helpers/           Små hjelpefunksjoner
+│   └── SportForAlle.Tests/    xUnit, ett prosjekt for alle testnivåer
 │
 ├── frontend/                  Next.js-applikasjon
 │   └── src/
@@ -80,40 +88,47 @@ Fyll inn verdiene i `.env`. Auth0-verdiene hentes fra Auth0-dashbordet, se
 openssl rand -hex 32
 ```
 
-Start hele systemet:
+## Kjøre applikasjonen
+
+Databasen kjøres i Docker, mens backend og frontend kjøres lokalt. Det gir
+raskest mulig iterasjon under utvikling, og databasen oppfører seg likt hver
+gang.
+
+Start hvert steg i sitt eget terminalvindu:
 
 ```bash
-docker compose up --build
+# 1. Database
+docker compose up -d db
+
+# 2. Backend
+cd backend/SportForAlle.Api
+dotnet run
+
+# 3. Frontend
+cd frontend
+bun install
+bun dev
 ```
 
 | Tjeneste | Adresse |
 | --- | --- |
 | Frontend | http://localhost:3000 |
 | API | http://localhost:5080 |
-| API-dokumentasjon | http://localhost:5080/scalar |
-| Database | localhost:5432 |
+| API-dokumentasjon | http://localhost:5080/openapi/v1.json |
+| Database | localhost:5433 |
 
-## Kjøre lagene hver for seg
+Forsiden viser status for API og database, slik at det er lett å se om alle tre
+lagene henger sammen.
 
-Under utvikling er det ofte raskere å kjøre bare databasen i Docker og resten fra
-IDE-en:
+### Hvorfor databasen ligger på port 5433
 
-```bash
-# Kun database
-docker compose up -d db
+Containeren publiseres på **5433**, ikke 5432. En lokalt installert PostgreSQL
+opptar som regel 5432, og da ville `localhost:5432` stille gått til den lokale
+serveren i stedet for containeren. Feilen viser seg som
+`password authentication failed`, selv om oppsettet i Docker er riktig.
 
-# Backend
-cd backend
-dotnet run --project src/SportForAlle.Api
-
-# Frontend
-cd frontend
-bun install
-bun dev
-```
-
-Husk at `ConnectionStrings__DefaultConnection` da må peke på `localhost` i stedet
-for `db`.
+Inne i compose-nettverket lytter databasen fortsatt på 5432. Porten kan endres
+med `POSTGRES_PORT` i `.env`.
 
 ## Database og migrasjoner
 
@@ -125,13 +140,14 @@ cd backend
 
 # Ny migrasjon etter endring i modellen
 dotnet ef migrations add <Navn> \
-  --project src/SportForAlle.Infrastructure \
-  --startup-project src/SportForAlle.Api
+  --project SportForAlle.Api \
+  --startup-project SportForAlle.Api \
+  --output-dir Data/Migrations
 
 # Kjør migrasjoner mot databasen
 dotnet ef database update \
-  --project src/SportForAlle.Infrastructure \
-  --startup-project src/SportForAlle.Api
+  --project SportForAlle.Api \
+  --startup-project SportForAlle.Api
 ```
 
 Detaljer i [`04-databasedesign.md`](./04-databasedesign.md). Arbeidsflyten er
@@ -144,6 +160,7 @@ også tilgjengelig som en skill i Claude Code: `/ef-migration`.
 cd backend && dotnet test
 
 # Frontend
+cd frontend && bun run test
 cd frontend && bun run lint && bun run build
 ```
 
@@ -153,13 +170,14 @@ Teststrategien er beskrevet i [`07-testing.md`](./07-testing.md).
 
 `.github/workflows/ci.yml` kjører på hver push og pull request mot `main`:
 
-1. **Backend** - `dotnet restore`, `dotnet build` med advarsler som feil, og
-   `dotnet test`.
-2. **Frontend** - `bun install`, `bun run lint` og `bun run build`.
-3. **Formatering** - `dotnet format --verify-no-changes` mot `.editorconfig`.
+1. **Backend** - `dotnet restore`, `dotnet build` med advarsler som feil,
+   `dotnet test` og `dotnet format --verify-no-changes` mot `.editorconfig`.
+2. **Frontend** - `bun install`, `bun run lint`, `bun run test` og
+   `bun run build`.
 
-Jobbene kjører parallelt, og hopper over seg selv så lenge den aktuelle mappen er
-tom. Slik er pipelinen på plass fra start uten å feile før prosjektene finnes.
+Jobbene kjører parallelt. De hopper over seg selv så lenge den aktuelle mappen
+mangler et prosjekt, slik at pipelinen kunne settes opp før koden fantes. Nå som
+begge prosjektene er på plass, kjører begge jobbene.
 
 ## AI-arbeidsflyt
 
