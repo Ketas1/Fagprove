@@ -38,23 +38,38 @@ Tre grunner:
 
 ### Backend
 
-| Pakke / komponent | Forventet lisens | Bekreftet |
-| --- | --- | --- |
-| .NET 10 / ASP.NET Core | MIT | |
-| Entity Framework Core | MIT | |
-| Npgsql (PostgreSQL-driver) | PostgreSQL License | |
-| xUnit | Apache 2.0 | |
-| Testcontainers | MIT | |
+| Pakke / komponent | Versjon | Forventet lisens | Bekreftet |
+| --- | --- | --- | --- |
+| .NET 10 / ASP.NET Core | 10.0 | MIT | |
+| Microsoft.EntityFrameworkCore | 10.0.4 | MIT | |
+| Microsoft.EntityFrameworkCore.Design | 10.0.4 | MIT | |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | PostgreSQL License | |
+| Microsoft.AspNetCore.OpenApi | 10.0.11 | MIT | |
+| xUnit | 2.9.3 | Apache 2.0 | |
+| Microsoft.AspNetCore.Mvc.Testing | 10.0.11 | MIT | |
+| Microsoft.NET.Test.Sdk | 17.14.1 | MIT | |
+| coverlet.collector | 6.0.4 | MIT | |
+| Testcontainers | ikke installert | MIT | |
+
+> EF Core er låst til **10.0.4**, ikke nyeste patch. Npgsql-provideren 10.0.3 er
+> bygget mot 10.0.4, og en nyere EF-versjon i tillegg gir konflikt på
+> `Microsoft.EntityFrameworkCore.Relational` når testprosjektet bygges.
+> Versjonene følger provideren, ikke omvendt.
 
 ### Frontend
 
-| Pakke / komponent | Forventet lisens | Bekreftet |
-| --- | --- | --- |
-| Next.js | MIT | |
-| React | MIT | |
-| Tailwind CSS | MIT | |
-| Bun | MIT | |
-| Playwright | Apache 2.0 | |
+| Pakke / komponent | Versjon | Forventet lisens | Bekreftet |
+| --- | --- | --- | --- |
+| Next.js | 16.3.4 | MIT | |
+| React / React DOM | 19.2.8 | MIT | |
+| Tailwind CSS | 4 | MIT | |
+| TypeScript | 5 | Apache 2.0 | |
+| ESLint / eslint-config-next | 9 / 16.3.4 | MIT | |
+| Jest | 30.5.1 | MIT | |
+| jest-environment-jsdom | 30.5.1 | MIT | |
+| @testing-library/react | 16.3.3 | MIT | |
+| @testing-library/jest-dom | 7.0.1 | MIT | |
+| Bun | 1.3.6 | MIT | |
 
 ### Database og drift
 

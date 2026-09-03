@@ -45,3 +45,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0009](./0009-xunit.md) | xUnit til testing av backend | Akseptert |
 | [0010](./0010-domenespraak-engelsk-i-kode.md) | Engelsk i kode, norsk i grensesnitt og dokumentasjon | Akseptert |
 | [0011](./0011-automatisk-forfall.md) | Forfall både beregnet og lagret | Akseptert |
+| [0012](./0012-lagdelt-monolitt.md) | Lagdelt monolitt uten repositories | Akseptert |

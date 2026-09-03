@@ -1,6 +1,6 @@
 ---
 name: ef-migration
-description: Create and apply an Entity Framework Core migration after changing the domain model. Use whenever an entity, property, relationship or enum changes in SportForAlle.Domain, or when the database schema needs to change for any reason. Covers reviewing the generated migration before it runs, which is the step that prevents data loss.
+description: Create and apply an Entity Framework Core migration after changing the data model. Use whenever an entity, property, relationship or enum changes in SportForAlle.Api/Models, or when the database schema needs to change for any reason. Covers reviewing the generated migration before it runs, which is the step that prevents data loss.
 ---
 
 # Entity Framework Core migration
@@ -19,9 +19,10 @@ docker compose up -d db
 
 ## Steps
 
-1. **Change the model** in `SportForAlle.Domain`, and the configuration in
-   `SportForAlle.Infrastructure` if the relationship, precision or constraint
-   needs to be explicit.
+1. **Change the entity** in `SportForAlle.Api/Models/`, and its
+   `IEntityTypeConfiguration` in `SportForAlle.Api/Data/Configurations/` if the
+   relationship, precision or constraint needs to be explicit. Configurations are
+   picked up automatically by the assembly scan in `AppDbContext`.
 
 2. **Generate the migration.** Name it after what it does, in PascalCase -
    `AddBanEntity`, `AddLateReturnCountToBorrower`.
@@ -29,8 +30,9 @@ docker compose up -d db
    ```bash
    cd backend
    dotnet ef migrations add <Name> \
-     --project src/SportForAlle.Infrastructure \
-     --startup-project src/SportForAlle.Api
+     --project SportForAlle.Api \
+     --startup-project SportForAlle.Api \
+     --output-dir Data/Migrations
    ```
 
 3. **Read the generated migration before applying it.** This is the step that
@@ -51,8 +53,8 @@ docker compose up -d db
 
    ```bash
    dotnet ef database update \
-     --project src/SportForAlle.Infrastructure \
-     --startup-project src/SportForAlle.Api
+     --project SportForAlle.Api \
+     --startup-project SportForAlle.Api
    ```
 
 5. **Document it.** Add a row to the migration table in
@@ -69,8 +71,8 @@ As long as it has **not been applied**, remove it and start over:
 
 ```bash
 dotnet ef migrations remove \
-  --project src/SportForAlle.Infrastructure \
-  --startup-project src/SportForAlle.Api
+  --project SportForAlle.Api \
+  --startup-project SportForAlle.Api
 ```
 
 Once it has been applied, do not edit it. Write a new migration that corrects

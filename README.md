@@ -20,28 +20,33 @@ Systemet dekker den daglige driften av en utlånsordning:
 | Backend | .NET 10, ASP.NET Core Web API, Entity Framework Core |
 | Database | PostgreSQL |
 | Autentisering | Auth0 |
-| Testing | xUnit, Playwright |
+| Testing | xUnit, Jest og Testing Library |
 | Drift | Docker Compose, GitHub Actions |
 
 Begrunnelsen for hvert valg ligger som ADR-er i [`docs/adr/`](./docs/adr/).
 
 ## Kom i gang
 
+Databasen kjøres i Docker, backend og frontend lokalt.
+
 ```bash
 git clone https://github.com/Ketas1/Fagprove.git
 cd Fagprove
-cp .env.example .env      # fyll inn verdiene
-docker compose up -d db   # starter databasen
+cp .env.example .env
+
+docker compose up -d db                     # database på localhost:5433
+cd backend/SportForAlle.Api && dotnet run    # API på localhost:5080
+cd frontend && bun install && bun dev        # frontend på localhost:3000
 ```
 
-Når backend og frontend er scaffoldet, starter `docker compose up --build` hele
-systemet. Full veiledning i
+Forsiden viser status for API og database, slik at det er lett å se om alle tre
+lagene henger sammen. Full veiledning i
 [`docs/11-utviklingsmiljo.md`](./docs/11-utviklingsmiljo.md).
 
 ## Struktur
 
 ```
-backend/     .NET-løsning: API, domene, datatilgang, tester
+backend/     .NET-løsning: API-prosjekt lagdelt i mapper, og testprosjekt
 frontend/    Next.js-applikasjon
 docs/        Dokumentasjon og ADR-er
 .claude/     AI-instrukser og skills for Claude Code

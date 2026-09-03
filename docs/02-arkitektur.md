@@ -3,15 +3,15 @@
 ## Overordnet
 
 Systemet er en trelagsapplikasjon: en frontend, et backend-API og en database.
-Alt ligger i ett repositorium (monorepo), og alle tre lagene kjøres samtidig
-lokalt med Docker Compose.
+Alt ligger i ett repositorium (monorepo). Under utvikling kjøres frontend og
+backend lokalt, mens databasen kjøres i Docker.
 
 ```mermaid
 flowchart LR
     B["Nettleser<br/>(ansatt)"]
     F["Frontend<br/>Next.js + Tailwind<br/>:3000"]
     A["Backend-API<br/>.NET 10<br/>:5080"]
-    D[("PostgreSQL<br/>:5432")]
+    D[("PostgreSQL<br/>Docker :5433")]
     Z["Auth0<br/>(ekstern)"]
 
     B --> F
@@ -38,44 +38,95 @@ Fagprove/
 ├── docs/             Dokumentasjon (denne mappen)
 ├── .claude/          AI-instrukser og skills
 ├── .github/          CI-pipeline
-├── docker-compose.yml
-└── CLAUDE.md         Instruksfil for Claude Code
+└── docker-compose.yml
 ```
 
 ## Backend: lagdeling
 
-Backend er delt i fire prosjekter. Avhengighetene peker innover: ytre lag kjenner
-indre lag, aldri omvendt.
+Backend er **ett prosjekt** der lagene skilles med mapper, ikke med separate
+prosjekter. Begrunnelsen, og alternativene som ble vurdert, står i
+[ADR-0012](./adr/0012-lagdelt-monolitt.md).
 
 ```mermaid
 flowchart TD
-    API["SportForAlle.Api<br/>Endepunkter, DTO-er, autorisasjon"]
-    APP["SportForAlle.Application<br/>Bruksmønstre, orkestrering"]
-    DOM["SportForAlle.Domain<br/>Entiteter, tilstander, forretningsregler"]
-    INF["SportForAlle.Infrastructure<br/>EF Core, e-post, fillagring"]
+    C["Controllers<br/>HTTP, DTO-er, autorisasjon"]
+    S["Services<br/>Bruksmønstre, orkestrering"]
+    M["Models<br/>Entiteter, tilstander, forretningsregler"]
+    DA["Data<br/>AppDbContext, konfigurasjon, migrasjoner"]
 
-    API --> APP
-    APP --> DOM
-    INF --> DOM
-    API -. "registrerer implementasjoner ved oppstart" .-> INF
+    C --> S
+    S --> M
+    S --> DA
+    DA --> M
 ```
 
-| Prosjekt | Ansvar | Kjenner til |
-| --- | --- | --- |
-| `Domain` | Entiteter, enums, tilstandsoverganger og forretningsregler. Ren C# uten rammeverk. | Ingenting |
-| `Application` | Bruksmønstre som "registrer utlån" eller "registrer retur". Definerer grensesnittene infrastrukturen må oppfylle. | `Domain` |
-| `Infrastructure` | EF Core `DbContext`, migrasjoner, e-postsending, lagring av bilder. Implementerer grensesnittene fra `Application`. | `Domain`, `Application` |
-| `Api` | HTTP-endepunkter, DTO-er, modellvalidering, autorisasjon, feilhåndtering. | `Application` |
+| Mappe | Ansvar |
+| --- | --- |
+| `Controllers/` | HTTP-endepunkter, modellvalidering, autorisasjon, feilhåndtering. Kaller services, aldri `AppDbContext`. |
+| `Services/` | Bruksmønstre som "registrer utlån" eller "registrer retur". Eneste laget som bruker `AppDbContext`. |
+| `Models/` | Entiteter med tilstand og forretningsregler. Ingen avhengighet til HTTP eller EF Core-oppsett. |
+| `Dtos/` | Objektene som krysser API-grensen. Entiteter eksponeres aldri direkte. |
+| `Data/` | `AppDbContext`, `IEntityTypeConfiguration`-klasser og migrasjoner. |
+| `Mapping/` | Konvertering mellom entiteter og DTO-er. |
+| `Validation/` | Validering av innkommende forespørsler. |
+| `Middleware/` | Tverrgående håndtering, blant annet feilrespons som `ProblemDetails`. |
+| `Configuration/` | Sterkt typede innstillinger bundet fra konfigurasjon. |
+| `Helpers/` | Små hjelpefunksjoner uten eget lag. |
 
-### Hvorfor denne lagdelingen
+Filstruktur:
 
-Den viktigste regelen i systemet er at et nytt utlån blokkeres når låneren har et
-åpent forfalt lån eller er utestengt. Den regelen må gjelde uansett hvor utlånet
-registreres fra. Ved å legge regelen i `Domain` kan den ikke omgås ved å kalle
-API-et direkte, og den kan enhetstestes uten database, HTTP eller Auth0.
+```
+backend/
+├── SportForAlle.sln
+├── SportForAlle.Api/
+│   ├── Program.cs
+│   ├── appsettings.json
+│   ├── appsettings.Development.json
+│   ├── Controllers/
+│   │   └── HealthController.cs
+│   ├── Services/
+│   ├── Models/
+│   │   └── EquipmentCategory.cs
+│   ├── Dtos/
+│   ├── Data/
+│   │   ├── AppDbContext.cs
+│   │   ├── Configurations/
+│   │   └── Migrations/
+│   ├── Mapping/  Validation/  Middleware/
+│   └── Configuration/  Helpers/
+└── SportForAlle.Tests/
+    ├── Models/       Enhetstester av forretningsregler
+    ├── Data/         Tester av EF-modellen
+    └── Controllers/  Endepunkttester
+```
 
-Lagdelingen gjør også at databasevalget er byttbart: `Domain` vet ikke at
-PostgreSQL finnes.
+### Hvordan forretningsreglene beskyttes
+
+Uten separate prosjekter finnes det ingen kompilator som hindrer at regler
+lekker ut i feil lag. Det løses ved at **entitetene eier sin egen tilstand**:
+
+```csharp
+public LoanStatus Status { get; private set; }
+
+public void RegisterReturn(DateTime returnedAt, IClock clock)
+{
+    if (Status is not (LoanStatus.Active or LoanStatus.Overdue))
+    {
+        throw new DomainException(...);
+    }
+
+    Status = LoanStatus.Returned;
+    ReturnedAt = returnedAt;
+}
+```
+
+`loan.Status = LoanStatus.Returned` kompilerer ikke utenfor entiteten.
+Tilstandsmaskinene i [`03-domenemodell.md`](./03-domenemodell.md) håndheves
+dermed av typesystemet, og kan enhetstestes uten database, HTTP eller Auth0.
+
+Den viktigste regelen i systemet - at et nytt utlån blokkeres når låntakeren har
+et åpent forfalt lån eller er utestengt - hører derfor hjemme på entiteten og i
+servicelaget, aldri i en controller.
 
 ## Frontend: struktur
 
@@ -84,16 +135,15 @@ bare der det trengs interaktivitet.
 
 ```
 frontend/src/
-├── app/
-│   ├── (auth)/           Innlogging og utlogging
-│   └── (dashboard)/      Beskyttet område - utstyr, brukere, utlån, rapporter
+├── app/                  Sider (App Router)
 ├── components/           Gjenbrukbare UI-komponenter
-├── lib/                  API-klient, autentisering, hjelpefunksjoner
-└── types/                Delte TypeScript-typer for API-svar
+├── lib/                  API-klient og hjelpefunksjoner
+└── types/                Delte typer for API-svar
 ```
 
-Alt under `(dashboard)` er beskyttet i middleware, ikke ved å skjule knapper. En
-uinnlogget bruker som skriver inn URL-en direkte blir sendt til innlogging.
+Når innlogging er på plass, beskyttes alt under det innloggede området i
+middleware, ikke ved å skjule knapper. En uinnlogget bruker som skriver inn
+URL-en direkte blir sendt til innlogging.
 
 ## Dataflyt: registrering av et utlån
 
@@ -104,27 +154,27 @@ regelen slår inn.
 sequenceDiagram
     participant A as Ansatt
     participant F as Frontend
-    participant API as Api
-    participant APP as Application
-    participant D as Domain
+    participant C as Controller
+    participant S as Service
+    participant M as Loan (entitet)
     participant DB as PostgreSQL
 
     A->>F: Velger barn og utstyr, trykker "Registrer utlån"
-    F->>API: POST /api/loans (JWT i header)
-    API->>API: Validerer token og rollen Staff
-    API->>APP: RegisterLoanCommand
-    APP->>DB: Henter låntaker, utstyr og åpne lån
-    APP->>D: Loan.Register(borrower, equipment, dueDate, clock)
+    F->>C: POST /api/loans (JWT i header)
+    C->>C: Validerer token og rollen Staff
+    C->>S: RegisterLoanAsync(request)
+    S->>DB: Henter låntaker, utstyr og åpne lån
+    S->>M: Loan.Register(borrower, equipment, dueDate, clock)
     alt Låntaker har åpent forfalt lån eller er utestengt
-        D-->>APP: Regelbrudd
-        APP-->>API: Feil med årsak
-        API-->>F: 409 Conflict + ProblemDetails
+        M-->>S: DomainException med årsak
+        S-->>C: Regelbrudd
+        C-->>F: 409 Conflict + ProblemDetails
         F-->>A: Forklaring på hvorfor utlånet er blokkert
     else Utlån tillatt
-        D-->>APP: Loan (Active), utstyr satt til OnLoan
-        APP->>DB: Lagrer utlån og oppdatert utstyrstatus
-        APP-->>API: LoanDto
-        API-->>F: 201 Created
+        M-->>S: Loan (Active), utstyr satt til OnLoan
+        S->>DB: Lagrer utlån og oppdatert utstyrstatus
+        S-->>C: LoanDto
+        C-->>F: 201 Created
         F-->>A: Kvittering
     end
 ```
@@ -140,21 +190,20 @@ Forfall skal oppdages uten at ansatte gjør noe. Det finnes to måter:
 
 Systemet bruker begge: statusen beregnes ved lesing slik at oversikten aldri
 viser feil, og en bakgrunnsjobb skriver statusen til databasen slik at forfall
-kan brukes i rapporter og spørringer. Det unngår at oversikten er avhengig av at
-en jobb faktisk har kjørt. Se [ADR-0011](./adr/0011-automatisk-forfall.md).
+kan brukes i rapporter og spørringer. Se
+[ADR-0011](./adr/0011-automatisk-forfall.md).
 
 ## Kjøremiljø
 
-Alle tre lagene kjøres i Docker Compose, slik at miljøet er likt hver gang.
-
-| Tjeneste | Port | Beskrivelse |
+| Tjeneste | Port | Kjøres |
 | --- | --- | --- |
-| `frontend` | 3000 | Next.js |
-| `api` | 5080 | .NET-API |
-| `db` | 5432 | PostgreSQL med navngitt volum for data |
+| `frontend` | 3000 | Lokalt (`bun dev`) |
+| `api` | 5080 | Lokalt (`dotnet run`) |
+| `db` | 5433 på host, 5432 i containeren | Docker (`docker compose up -d db`) |
 
-Konfigurasjon settes med miljøvariabler, dokumentert i `.env.example`. Se
-[`11-utviklingsmiljo.md`](./11-utviklingsmiljo.md) for oppsett og kjøring.
+Databasen publiseres bevisst på 5433. En lokalt installert PostgreSQL opptar som
+regel 5432, og da ville tilkoblinger mot `localhost:5432` stille gått til feil
+server. Se [`11-utviklingsmiljo.md`](./11-utviklingsmiljo.md) for oppsett.
 
 ## Videre lesning
 

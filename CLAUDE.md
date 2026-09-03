@@ -51,7 +51,7 @@ Read these before writing any code.
 | Backend  | .NET 10, ASP.NET Core Web API, Entity Framework Core (Code First) |
 | Database | PostgreSQL                                                        |
 | Auth     | Auth0 (OIDC / JWT bearer), roles User / Staff / Admin             |
-| Testing  | xUnit (backend), Playwright (end-to-end)                          |
+| Testing  | xUnit (backend), Jest + Testing Library (frontend)                |
 | Infra    | Docker Compose, GitHub Actions                                    |
 
 Rationale for each choice lives in `docs/adr/`. Do not swap any of these without
@@ -60,11 +60,14 @@ writing a new ADR that supersedes the existing one.
 ## Repository layout
 
 ```
-backend/     .NET solution - API, domain, data access, tests
-frontend/    Next.js application
-docs/        Norwegian documentation + ADRs
-.claude/     Skills and shared settings for Claude Code
-.github/     CI workflows and PR template
+backend/
+  SportForAlle.sln
+  SportForAlle.Api/     One project, layered by folder
+  SportForAlle.Tests/   xUnit
+frontend/               Next.js app (src/app, components, lib, types)
+docs/                   Norwegian documentation + ADRs
+.claude/                Skills and shared settings for Claude Code
+.github/                CI workflows and PR template
 ```
 
 ## Domain
@@ -165,11 +168,20 @@ children get older.
 
 ### Backend
 
-- Layering: `Api` (endpoints, DTOs) to `Application` (use cases) to
-  `Domain` (entities, rules) to `Infrastructure` (EF Core, Auth0, email).
-  Dependencies point inward. Domain references nothing outward.
-- **Business rules live in the domain layer**, never in a controller or a React
-  component. A rule that only exists in the UI does not exist.
+- **One project, layered by folder** - `SportForAlle.Api` with `Controllers/`,
+  `Services/`, `Models/`, `Dtos/`, `Data/`, `Mapping/`, `Validation/`,
+  `Middleware/`, `Configuration/`, `Helpers/`. Not Clean Architecture; see
+  `docs/adr/0012-lagdelt-monolitt.md`.
+- **Controllers call services. Services are the only layer that touches
+  `AppDbContext`.** There is no repository layer - EF Core already is one. A
+  controller reaching for the DbContext is a bug.
+- **Entities own their state.** Setters are private and every transition goes
+  through a method on the entity that validates first, so
+  `loan.Status = LoanStatus.Returned` does not compile outside the entity. This
+  is what replaces the compiler-enforced boundary Clean Architecture would have
+  given, so it is not optional.
+- **Business rules live on the entity or in the service**, never in a controller
+  or a React component. A rule that only exists in the UI does not exist.
 - Nullable reference types are on. Do not silence warnings with the null-forgiving
   operator - fix the model instead.
 - Async everywhere for I/O, suffix `Async`, take a `CancellationToken`.
@@ -188,6 +200,44 @@ children get older.
   with a machine-readable reason, not a bare `400`.
 - EF Core is Code First. Schema changes happen through a migration - never by
   editing the database directly.
+
+### Migrations - do not skip these
+
+**A migration is not done until it has been applied.** Creating one only writes
+files; the database is unchanged until `database update` runs. Never end a task
+having added a migration without applying it - the next person to pull will have
+a model and a database that disagree.
+
+```bash
+cd backend
+dotnet ef migrations add <Name> --project SportForAlle.Api --startup-project SportForAlle.Api --output-dir Data/Migrations
+dotnet ef database update --project SportForAlle.Api --startup-project SportForAlle.Api
+```
+
+**Before running either, confirm the connection string points at the Docker
+database.** `ConnectionStrings:DefaultConnection` in
+`SportForAlle.Api/appsettings.Development.json` must use **`Host=localhost;Port=5433`**,
+and the container must be up:
+
+```bash
+docker compose up -d db
+```
+
+Port 5433 is deliberate. A natively installed PostgreSQL usually holds 5432, and
+this machine has one running. Pointing at 5432 silently reaches that server
+instead - the symptom is `password authentication failed for user
+"sportforalle"` even though the Docker setup is correct. If you see that error,
+check the port before anything else.
+
+Verify the result rather than assuming it: read the generated migration before
+applying it (see the `ef-migration` skill), and confirm the schema afterwards.
+
+```bash
+docker exec -e PGPASSWORD=change-me-locally sportforalle-db \
+  psql -U sportforalle -d sportforalle -c "\dt"
+```
+
+Then add a row to the migration table in `docs/04-databasedesign.md`.
 
 ### Frontend
 
@@ -211,27 +261,27 @@ children get older.
 Docker Compose is the normal way to run everything. These become available as
 each layer is scaffolded.
 
-```bash
-# Whole stack (frontend + backend + database)
-docker compose up --build
+Database in Docker, backend and frontend run locally.
 
-# Database only, for running the API from the IDE against it
+```bash
+# Database (published on host port 5433 - a local PostgreSQL usually holds 5432)
 docker compose up -d db
 
 # Backend
-cd backend
-dotnet run --project src/SportForAlle.Api
-dotnet test
-dotnet format
+cd backend/SportForAlle.Api && dotnet run     # http://localhost:5080
+cd backend && dotnet test
+cd backend && dotnet format
 
 # EF Core migrations (see the ef-migration skill)
-dotnet ef migrations add <Name> --project src/SportForAlle.Infrastructure --startup-project src/SportForAlle.Api
-dotnet ef database update --project src/SportForAlle.Infrastructure --startup-project src/SportForAlle.Api
+cd backend
+dotnet ef migrations add <Name> --project SportForAlle.Api --startup-project SportForAlle.Api --output-dir Data/Migrations
+dotnet ef database update --project SportForAlle.Api --startup-project SportForAlle.Api
 
 # Frontend
 cd frontend
 bun install
-bun dev
+bun dev          # http://localhost:3000
+bun run test     # Jest
 bun run lint
 bun run build
 ```
@@ -244,9 +294,10 @@ Tests are written alongside the code from the start, not retrofitted at the end.
   transitions and the late-return counter are the highest-value tests in the
   project - they are what the system exists to do.
 - **Integration tests** cover endpoints against a real PostgreSQL container.
-- **End-to-end (Playwright)** covers the main staff workflow: register guardian
-  and child, register equipment, register a loan, let it go overdue, contact the
-  guardian, return it late, see the borrower marked unreliable.
+- **Frontend (Jest + Testing Library)** covers component behaviour and the small
+  amount of logic in `lib/`. Run with `bun run test`.
+- **End-to-end** is not set up yet, and no tool has been chosen. Do not claim
+  coverage that does not exist.
 - Never assert against the system clock directly. Inject a clock abstraction so
   overdue logic is testable.
 
