@@ -49,6 +49,7 @@ Tre grunner:
 | Microsoft.AspNetCore.Mvc.Testing | 10.0.11 | MIT | |
 | Microsoft.NET.Test.Sdk | 17.14.1 | MIT | |
 | coverlet.collector | 6.0.4 | MIT | |
+| DotNetEnv | 3.2.0 | MIT | |
 | Testcontainers | ikke installert | MIT | |
 
 > EF Core er låst til **10.0.4**, ikke nyeste patch. Npgsql-provideren 10.0.3 er
@@ -69,6 +70,7 @@ Tre grunner:
 | jest-environment-jsdom | 30.5.1 | MIT | |
 | @testing-library/react | 16.3.3 | MIT | |
 | @testing-library/jest-dom | 7.0.1 | MIT | |
+| @auth0/nextjs-auth0 | 4.28.0 | MIT | |
 | Bun | 1.3.6 | MIT | |
 
 ### Database og drift

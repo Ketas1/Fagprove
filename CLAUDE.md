@@ -222,8 +222,9 @@ dotnet ef database update --project SportForAlle.Api --startup-project SportForA
 ```
 
 **Before running either, confirm the connection string points at the Docker
-database.** `ConnectionStrings:DefaultConnection` in
-`SportForAlle.Api/appsettings.Development.json` must use **`Host=localhost;Port=5433`**,
+database.** `ConnectionStrings__DefaultConnection` in the root **`.env`**
+(loaded by `DotNetEnv` in `Program.cs` - see `docs/11-utviklingsmiljo.md`; it
+is not in `appsettings.Development.json`) must use **`Host=localhost;Port=5433`**,
 and the container must be up:
 
 ```bash
