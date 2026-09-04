@@ -3,7 +3,9 @@ using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi;
 using Npgsql;
+using Scalar.AspNetCore;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
 using SportForAlle.Api.Middleware;
@@ -34,7 +36,32 @@ builder.Services
         // registered action name is "GetById", not "GetByIdAsync".
         options.SuppressAsyncSuffixInActionNames = false)
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
-builder.Services.AddOpenApi();
+builder.Services.AddOpenApi(options =>
+{
+    // Describes the Bearer JWT scheme this API actually uses, so Scalar
+    // renders a proper "Bearer Token" auth field instead of a raw custom
+    // header - see docs/11-utviklingsmiljo.md.
+    options.AddDocumentTransformer((document, _, _) =>
+    {
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Auth0 access token. Get one from the Auth0 dashboard - your API - the Test tab."
+        };
+
+        document.Security ??= [];
+        document.Security.Add(new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+
+        return Task.CompletedTask;
+    });
+});
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
@@ -122,7 +149,19 @@ WebApplication app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    // Anonymous, deliberately, and only in this Development-gated block -
+    // never in a real deployment. Otherwise the fallback policy above (every
+    // endpoint requires authentication) would apply to /scalar and the spec
+    // it reads too, and there would be no way to reach the page and paste in
+    // a token if one wasn't already set - see docs/11-utviklingsmiljo.md.
+    // The actual /api/* endpoints are untouched and stay fully protected -
+    // that is the thing this UI exists to test.
+    app.MapOpenApi().AllowAnonymous();
+    app.MapScalarApiReference(options =>
+    {
+        options.Title = "Sport For Alle API";
+        options.OpenApiRoutePattern = "/openapi/{documentName}.json";
+    }).AllowAnonymous();
 }
 
 // Translates service-thrown exceptions into RFC 7807 ProblemDetails, see

@@ -19,6 +19,18 @@ public class BorrowersEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task GetAll_returns_a_created_borrower()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        List<BorrowerPayload>? borrowers = await client.GetFromJsonAsync<List<BorrowerPayload>>("/api/borrowers");
+
+        Assert.Contains(borrowers!, borrower => borrower.Id == borrowerId);
+    }
+
+    [Fact]
     public async Task Create_with_an_inline_new_guardian_creates_both()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();

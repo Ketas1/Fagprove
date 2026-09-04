@@ -13,9 +13,7 @@ public class BorrowerService(AppDbContext dbContext, IClock clock)
 {
     public async Task<IReadOnlyList<BorrowerResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
-        List<BorrowerWithGuardianName> rows = await QueryWithGuardianName()
-            .OrderBy(row => row.Borrower.Name)
-            .ToListAsync(cancellationToken);
+        List<BorrowerWithGuardianName> rows = await QueryWithGuardianName().ToListAsync(cancellationToken);
 
         return rows.Select(row => BorrowerMapper.ToResponse(row.Borrower, row.GuardianName)).ToList();
     }
@@ -79,15 +77,17 @@ public class BorrowerService(AppDbContext dbContext, IClock clock)
     }
 
     /// <summary>
-    /// Filters (here just <paramref name="id"/>) are applied inside this
-    /// query, not by chaining a further `.Where` onto its result - EF Core
-    /// cannot translate a predicate over members of an already
-    /// constructor-projected type like <see cref="BorrowerWithGuardianName"/>.
+    /// Filtering and ordering are applied inside this query, not by chaining
+    /// a further `.Where`/`.OrderBy` onto its result - EF Core cannot
+    /// translate either over members of an already constructor-projected
+    /// type like <see cref="BorrowerWithGuardianName"/>, see
+    /// docs/adr/0017-global-exception-handler.md.
     /// </summary>
     private IQueryable<BorrowerWithGuardianName> QueryWithGuardianName(Guid? id = null) =>
         from borrower in dbContext.Borrowers
         join guardian in dbContext.Guardians on borrower.GuardianId equals guardian.Id
         where id == null || borrower.Id == id
+        orderby borrower.Name
         select new BorrowerWithGuardianName(borrower, guardian.Name);
 
     private sealed record BorrowerWithGuardianName(Borrower Borrower, string GuardianName);

@@ -55,14 +55,21 @@ short sequence, not a place where rules or mapping logic accumulate.
   navigation property for something the DTO needs (most don't - see
   `04-databasedesign.md`), the service joins it in itself and passes it to
   the mapper as an extra argument.
-- **EF Core query gotcha:** if a query needs both a filter and a projection
-  into a named type (not an anonymous type), put the filter *inside* the same
-  query - as a `where` clause before the `select new SomeRecord(...)` - not
-  as a `.Where(...)` chained onto the already-projected `IQueryable<T>`. EF
-  Core cannot translate a predicate over members of an already
-  constructor-projected type; it throws `InvalidOperationException` with
-  "could not be translated" at query execution time, not at compile time. See
-  `docs/adr/0017-global-exception-handler.md`, "Erfaring fra implementeringen".
+- **EF Core query gotcha:** if a query needs a filter, an order, or both,
+  *and* a projection into a named type (not an anonymous type), put the
+  filter and the order *inside* the same query - a `where` and an `orderby`
+  before `select new SomeRecord(...)` - not chained onto the already-projected
+  `IQueryable<T>` (`.Where(...)`, `.OrderBy(...)`, `.OrderByDescending(...)`
+  all have this problem, not just `.Where`). EF Core cannot translate a
+  predicate or a sort key over members of an already constructor-projected
+  type; it throws `InvalidOperationException` with "could not be translated"
+  at query execution time, not at compile time - and this only surfaces once
+  the query actually runs against a real database with matching rows, not
+  against an empty table or in a unit test. See
+  `docs/adr/0017-global-exception-handler.md`, "Erfaring fra implementeringen",
+  which records two real instances of exactly this, one of them only caught
+  by manually testing through Scalar after the automated tests had already
+  passed - see the next point for why.
 
 **Services are the only layer that touches `AppDbContext`.** There is no
 repository layer; EF Core already is one. If the schema changes, use the
@@ -129,6 +136,15 @@ borrower, a category before equipment) with
 `SportForAlle.Tests/TestSupport/ApiTestDataBuilder.cs` rather than repeating
 the request bodies - add a method there if the endpoint introduces a new kind
 of prerequisite.
+
+**If the endpoint is a `GET` list, an authenticated test must actually call it
+with data in the table**, not just check `401` without a token. The `401`
+check never reaches the query, so it proves nothing about whether the query
+itself runs - and a query that only fails once real rows exist (see the EF
+Core gotcha above) will pass every test that never calls the endpoint
+authenticated. This exact gap - a list endpoint with only a `401` test,
+nothing authenticated - is what let one of the two query bugs above reach a
+real, manual test session before it was caught.
 
 Testcontainers is not set up yet; tests run against the shared Docker database
 (`docker compose up -d db`), not an isolated one per test. Use random values

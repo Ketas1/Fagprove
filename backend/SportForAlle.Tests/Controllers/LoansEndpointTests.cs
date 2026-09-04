@@ -27,6 +27,26 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task GetAll_returns_a_registered_loan()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload registered = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+
+        List<LoanPayload>? loans = await client.GetFromJsonAsync<List<LoanPayload>>("/api/loans");
+
+        Assert.Contains(loans!, loan => loan.Id == registered.Id);
+    }
+
+    [Fact]
     public async Task Register_marks_the_equipment_on_loan()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
@@ -73,6 +93,38 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
         ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
         Assert.Equal("EquipmentNotAvailable", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task Register_allows_a_second_loan_for_a_borrower_whose_first_loan_is_still_active()
+    {
+        // Exercises the "open loans" query (Services/LoanService.cs,
+        // RegisterAsync) against a real, non-empty result set - a borrower
+        // with one open loan is a legitimate everyday case (borrowing two
+        // items at once), not just a blocked-loan edge case, and the query
+        // filters on an array via .Contains(), which needs to actually
+        // execute against Postgres to prove it translates.
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid firstEquipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        Guid secondEquipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage firstLoan = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = firstEquipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        Assert.Equal(HttpStatusCode.Created, firstLoan.StatusCode);
+
+        HttpResponseMessage secondLoan = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = secondEquipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+
+        Assert.Equal(HttpStatusCode.Created, secondLoan.StatusCode);
     }
 
     [Fact]

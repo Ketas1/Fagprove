@@ -15,7 +15,6 @@ public class EquipmentService(AppDbContext dbContext, IClock clock)
         EquipmentStatus? status, Guid? categoryId, CancellationToken cancellationToken)
     {
         List<EquipmentWithCategoryName> rows = await QueryWithCategoryName(status: status, categoryId: categoryId)
-            .OrderBy(row => row.Equipment.Name)
             .ToListAsync(cancellationToken);
 
         return rows.Select(row => EquipmentMapper.ToResponse(row.Equipment, row.CategoryName)).ToList();
@@ -83,10 +82,11 @@ public class EquipmentService(AppDbContext dbContext, IClock clock)
     }
 
     /// <summary>
-    /// Filters are applied inside this query, not by chaining a further
-    /// `.Where` onto its result - EF Core cannot translate a predicate over
-    /// members of an already constructor-projected type like
-    /// <see cref="EquipmentWithCategoryName"/>.
+    /// Filtering and ordering are applied inside this query, not by chaining
+    /// a further `.Where`/`.OrderBy` onto its result - EF Core cannot
+    /// translate either over members of an already constructor-projected
+    /// type like <see cref="EquipmentWithCategoryName"/>, see
+    /// docs/adr/0017-global-exception-handler.md.
     /// </summary>
     private IQueryable<EquipmentWithCategoryName> QueryWithCategoryName(
         Guid? id = null, EquipmentStatus? status = null, Guid? categoryId = null) =>
@@ -95,6 +95,7 @@ public class EquipmentService(AppDbContext dbContext, IClock clock)
         where (id == null || equipment.Id == id)
             && (status == null || equipment.Status == status)
             && (categoryId == null || equipment.CategoryId == categoryId)
+        orderby equipment.Name
         select new EquipmentWithCategoryName(equipment, category.Name);
 
     private sealed record EquipmentWithCategoryName(Equipment Equipment, string CategoryName);

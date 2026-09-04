@@ -51,3 +51,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0015](./0015-proxied-backend-for-frontend.md) | Proxied backend-for-frontend i stedet for direkte kall fra nettleseren | Akseptert |
 | [0016](./0016-shadcn-ui.md) | shadcn/ui som eneste komponentbibliotek i frontend | Akseptert |
 | [0017](./0017-global-exception-handler.md) | Global exception-handler for RFC 7807-feilsvar | Akseptert |
+| [0018](./0018-scalar-api-testing.md) | Scalar som API-testverktøy i utviklingsmiljø | Akseptert |

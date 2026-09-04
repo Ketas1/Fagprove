@@ -15,9 +15,7 @@ public class LoanService(AppDbContext dbContext, IClock clock)
 
     public async Task<IReadOnlyList<LoanResponse>> GetAllAsync(LoanStatus? status, CancellationToken cancellationToken)
     {
-        List<LoanWithNames> rows = await QueryWithNames(status: status)
-            .OrderByDescending(row => row.Loan.StartedAt)
-            .ToListAsync(cancellationToken);
+        List<LoanWithNames> rows = await QueryWithNames(status: status).ToListAsync(cancellationToken);
 
         return rows.Select(row => LoanMapper.ToResponse(row.Loan, row.BorrowerName, row.EquipmentName)).ToList();
     }
@@ -90,16 +88,18 @@ public class LoanService(AppDbContext dbContext, IClock clock)
     }
 
     /// <summary>
-    /// Filters are applied inside this query, not by chaining a further
-    /// `.Where` onto its result - EF Core cannot translate a predicate over
-    /// members of an already constructor-projected type like
-    /// <see cref="LoanWithNames"/>.
+    /// Filtering and ordering are applied inside this query, not by chaining
+    /// a further `.Where`/`.OrderByDescending` onto its result - EF Core
+    /// cannot translate either over members of an already
+    /// constructor-projected type like <see cref="LoanWithNames"/>, see
+    /// docs/adr/0017-global-exception-handler.md.
     /// </summary>
     private IQueryable<LoanWithNames> QueryWithNames(Guid? id = null, LoanStatus? status = null) =>
         from loan in dbContext.Loans
         join borrower in dbContext.Borrowers on loan.BorrowerId equals borrower.Id
         join equipment in dbContext.Equipment on loan.EquipmentId equals equipment.Id
         where (id == null || loan.Id == id) && (status == null || loan.Status == status)
+        orderby loan.StartedAt descending
         select new LoanWithNames(loan, borrower.Name, equipment.Name);
 
     private sealed record LoanWithNames(Loan Loan, string BorrowerName, string EquipmentName);

@@ -19,6 +19,18 @@ public class GuardiansEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task GetAll_returns_a_created_guardian()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid guardianId = await ApiTestDataBuilder.CreateGuardianAsync(client);
+
+        List<GuardianPayload>? guardians = await client.GetFromJsonAsync<List<GuardianPayload>>("/api/guardians");
+
+        Assert.Contains(guardians!, guardian => guardian.Id == guardianId);
+    }
+
+    [Fact]
     public async Task Create_then_get_returns_the_new_guardian()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();

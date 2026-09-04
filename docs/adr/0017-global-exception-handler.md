@@ -96,3 +96,19 @@ rutingfeilen usynlig som en falsk `409 Regelbrudd` i stedet for en synlig
 `500`. Grenen ble fjernet igjen da dette ble oppdaget - et unntak av en type
 handleren ikke uttrykkelig kjenner igjen, skal være synlig som en feil, ikke
 maskeres som et forretningsregelbrudd.
+
+**Oppdaget etterpå, manuelt gjennom Scalar (se ADR-0018):** samme
+`InvalidOperationException`-mønster som punkt 2, men for `.OrderBy`/
+`.OrderByDescending` kjedet på resultatet av en allerede projisert spørring
+(`GET /api/borrowers`, som feilet i praksis - ikke bare i teorien). Rettet på
+samme måte: sortering lagt inn i selve spørringen, som `orderby` før
+`select`, i stedet for kjedet på resultatet.
+
+Grunnen til at dette ikke ble fanget opp av testene som allerede fantes: ingen
+av integrasjonstestene for `Borrower`, `Equipment` eller `Loan` kalte det
+autentiserte `GET`-listeendepunktet i det hele tatt - bare `401`-sjekken uten
+token, som aldri når spørringen. `SportForAlle.Tests/Controllers/*EndpointTests.cs`
+har nå en `GetAll_returns_...`-test per ressurs som faktisk henter en liste
+med data i, nettopp for å dekke dette. Se også oppdateringen i
+`backend-endpoint`-skillen: en integrasjonstest skal dekke listeendepunktet
+med reelle data, ikke bare opprettelse og enkeltoppslag.

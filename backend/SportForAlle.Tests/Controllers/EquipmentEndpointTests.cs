@@ -19,6 +19,18 @@ public class EquipmentEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task GetAll_returns_created_equipment()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+
+        List<EquipmentPayload>? equipment = await client.GetFromJsonAsync<List<EquipmentPayload>>("/api/equipment");
+
+        Assert.Contains(equipment!, item => item.Id == equipmentId);
+    }
+
+    [Fact]
     public async Task Create_then_get_returns_the_new_equipment_as_available()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
