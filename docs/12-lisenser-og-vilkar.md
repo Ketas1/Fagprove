@@ -51,6 +51,7 @@ Tre grunner:
 | coverlet.collector | 6.0.4 | MIT | |
 | DotNetEnv | 3.2.0 | MIT | |
 | Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.4 | MIT | |
+| Scalar.AspNetCore | 2.11.3 | MIT | |
 | Testcontainers | ikke installert | MIT | |
 
 > EF Core er låst til **10.0.4**, ikke nyeste patch. Npgsql-provideren 10.0.3 er

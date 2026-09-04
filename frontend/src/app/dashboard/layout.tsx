@@ -35,6 +35,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 <SidebarMenuItem>
                   <SidebarMenuButton isActive render={<a href="/dashboard">Status</a>} />
                 </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton render={<a href="/dashboard/staff">Ansatte</a>} />
+                </SidebarMenuItem>
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

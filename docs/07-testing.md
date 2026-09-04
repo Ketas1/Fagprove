@@ -54,8 +54,18 @@ Dette er et av de viktigste designvalgene for testbarhet i prosjektet.
 
 ## Testdata
 
-> Beskriv hvordan testdata bygges opp, og hvordan hver test starter fra en kjent
-> tilstand.
+Entitetstester bygger det de trenger direkte i testen (se `TestSupport/FakeClock.cs`
+for den injiserte klokken). Endepunkttester som trenger en kjede av
+forutsetninger - en foresatt før et barn, en kategori før utstyr - bruker
+`SportForAlle.Tests/TestSupport/ApiTestDataBuilder.cs`, som oppretter dem via
+ekte HTTP-kall mot den kjørende test-applikasjonen, i stedet for at hver test
+gjentar de samme request-kroppene.
+
+Hver test kjører mot den delte Docker-databasen (`docker compose up -d db`),
+ikke en isolert database per test. Testene bruker derfor alltid tilfeldige
+verdier (`Guid.NewGuid()`) der noe må være unikt, som serienummer og
+kategorinavn, i stedet for faste navn som ville kollidert på tvers av
+testkjøringer.
 
 Testene bruker ikke ekte personopplysninger. Navn og kontaktinformasjon i
 testdata er oppdiktet.

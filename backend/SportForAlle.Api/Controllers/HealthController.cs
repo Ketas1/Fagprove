@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using SportForAlle.Api.Data;
+using SportForAlle.Api.Middleware;
 
 namespace SportForAlle.Api.Controllers;
 
@@ -11,6 +12,12 @@ namespace SportForAlle.Api.Controllers;
 [Route("api/[controller]")]
 public class HealthController(AppDbContext dbContext, ILogger<HealthController> logger) : ControllerBase
 {
+    /// <summary>
+    /// An operational check, not domain data - reachable by any
+    /// authenticated user regardless of whether they are linked to a Staff
+    /// profile yet.
+    /// </summary>
+    [AllowUnlinkedStaff]
     [HttpGet]
     public async Task<IActionResult> GetAsync(CancellationToken cancellationToken)
     {

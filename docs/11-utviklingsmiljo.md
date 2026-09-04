@@ -115,12 +115,40 @@ bun dev
 | Frontend (innlogging) | http://localhost:3000 |
 | Frontend (dashbord, krever innlogging) | http://localhost:3000/dashboard |
 | API | http://localhost:5080 |
-| API-dokumentasjon | http://localhost:5080/openapi/v1.json |
+| API-dokumentasjon (rå OpenAPI-spesifikasjon) | http://localhost:5080/openapi/v1.json |
+| API-testing (Scalar, kun i Development) | http://localhost:5080/scalar |
 | Database | localhost:5433 |
 
-Alle endepunkter i API-et krever autentisering som standard, **inkludert**
-`/openapi/v1.json` - å åpne den direkte i nettleseren uinnlogget gir `401`,
-ikke spesifikasjonen. Se [`06-autentisering.md`](./06-autentisering.md).
+Alle endepunkter i selve API-et (`/api/*`) krever autentisering som standard.
+**Unntaket** er `/scalar` og `/openapi/v1.json`, som er anonymt tilgjengelige,
+men **kun i Development** - se "API-testing med Scalar" under for hvorfor og
+[`06-autentisering.md`](./06-autentisering.md) for resten av
+autentiseringsoppsettet.
+
+### API-testing med Scalar
+
+Scalar (`Scalar.AspNetCore`) gir et brukergrensesnitt for å teste API-et
+direkte, uten frontend - nyttig for å verifisere at et endepunkt fungerer mot
+en ekte database, og at autentisering faktisk håndheves. Bygget på den
+innebygde OpenAPI-genereringen (`Microsoft.AspNetCore.OpenApi`, ikke
+Swashbuckle), ikke et eget verktøy ved siden av.
+
+- Åpne **http://localhost:5080/scalar** mens backend kjører i `Development`.
+- Trykk **Authentication** øverst til høyre, velg **Bearer**, og lim inn et
+  ekte Auth0 access token for API-et - hentet fra Auth0-dashbordet, under
+  applikasjonen sin API - fanen **Test**, som gir en `curl`-kommando med et
+  gyldig token. Scalar husker tokenet i nettleseren til det byttes ut eller
+  utløper.
+- Ethvert kall mot `/api/*` uten et gyldig token gir fortsatt `401` - det er
+  nettopp poenget: Scalar tester den ekte autentiseringen, ikke en forbikjøring
+  av den.
+
+`/scalar` og `/openapi/v1.json` er markert `[AllowAnonymous]` **utelukkende**
+inne i `if (app.Environment.IsDevelopment())`-blokken i `Program.cs` - uten
+det unntaket kunne siden aldri åpnes uten et token allerede satt, siden den
+globale fallback-policyen ellers ville krevd autentisering for absolutt alle
+endepunkter, inkludert selve testsiden. Selve `/api/*`-endepunktene er
+urørt og fullt beskyttet som før.
 
 Dashbordet viser status for API og database, slik at det er lett å se om alle
 tre lagene henger sammen - hentet gjennom frontendens egen proxy, se
