@@ -8,7 +8,7 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class EquipmentCategoryService(AppDbContext dbContext, IClock clock)
+public class EquipmentCategoryService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
 {
     public async Task<IReadOnlyList<EquipmentCategoryResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -30,7 +30,7 @@ public class EquipmentCategoryService(AppDbContext dbContext, IClock clock)
             throw new DomainConflictException("DuplicateCategoryName", "En kategori med dette navnet finnes allerede.");
         }
 
-        EquipmentCategory category = new(request.Name, clock, createdByStaffId: null);
+        EquipmentCategory category = new(request.Name, clock, currentUser.RequireStaffId());
 
         dbContext.EquipmentCategories.Add(category);
         await dbContext.SaveChangesAsync(cancellationToken);

@@ -8,7 +8,7 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class GuardianService(AppDbContext dbContext, IClock clock)
+public class GuardianService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
 {
     public async Task<IReadOnlyList<GuardianResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -24,7 +24,7 @@ public class GuardianService(AppDbContext dbContext, IClock clock)
 
     public async Task<GuardianResponse> CreateAsync(CreateGuardianRequest request, CancellationToken cancellationToken)
     {
-        Guardian guardian = new(request.Name, request.Email, request.Phone, clock, createdByStaffId: null);
+        Guardian guardian = new(request.Name, request.Email, request.Phone, clock, currentUser.RequireStaffId());
 
         dbContext.Guardians.Add(guardian);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -37,9 +37,10 @@ public class GuardianService(AppDbContext dbContext, IClock clock)
     {
         Guardian guardian = await FindAsync(id, cancellationToken);
 
-        guardian.Rename(request.Name, clock, staffId: null);
-        guardian.ChangeEmail(request.Email, clock, staffId: null);
-        guardian.ChangePhone(request.Phone, clock, staffId: null);
+        Guid staffId = currentUser.RequireStaffId();
+        guardian.Rename(request.Name, clock, staffId);
+        guardian.ChangeEmail(request.Email, clock, staffId);
+        guardian.ChangePhone(request.Phone, clock, staffId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

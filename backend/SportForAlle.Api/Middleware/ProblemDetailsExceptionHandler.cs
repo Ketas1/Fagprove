@@ -9,12 +9,13 @@ namespace SportForAlle.Api.Middleware;
 /// <summary>
 /// Translates exceptions thrown by services into RFC 7807 <see cref="ProblemDetails"/>,
 /// per docs/05-api.md. <see cref="DomainConflictException"/> and
-/// <see cref="NotFoundException"/> carry their own status and (for conflicts)
-/// a machine-readable `reason`; everything else handled here is a defensive
-/// fallback - most commonly an <see cref="ArgumentException"/> thrown by an
-/// entity's own validation - and deliberately never echoes the exception's
-/// (English) message back to the client, since <see cref="ProblemDetails"/>
-/// content is user-facing and therefore Norwegian, see CLAUDE.md.
+/// <see cref="ForbiddenException"/> carry a machine-readable `reason`;
+/// <see cref="NotFoundException"/> carries its own status; everything else
+/// handled here is a defensive fallback - most commonly an
+/// <see cref="ArgumentException"/> thrown by an entity's own validation -
+/// and deliberately never echoes the exception's (English) message back to
+/// the client, since <see cref="ProblemDetails"/> content is user-facing and
+/// therefore Norwegian, see CLAUDE.md.
 /// </summary>
 public class ProblemDetailsExceptionHandler(ILogger<ProblemDetailsExceptionHandler> logger) : IExceptionHandler
 {
@@ -29,7 +30,22 @@ public class ProblemDetailsExceptionHandler(ILogger<ProblemDetailsExceptionHandl
                 Title = "Fant ikke ressursen",
                 Detail = notFound.Message,
             },
-            DomainConflictException conflict => BuildConflictProblem(conflict),
+            ForbiddenException forbidden => WithReason(
+                new ProblemDetails
+                {
+                    Status = StatusCodes.Status403Forbidden,
+                    Title = "Ikke tilgang",
+                    Detail = forbidden.Message,
+                },
+                forbidden.Reason),
+            DomainConflictException conflict => WithReason(
+                new ProblemDetails
+                {
+                    Status = conflict.StatusCode,
+                    Title = "Regelbrudd",
+                    Detail = conflict.Message,
+                },
+                conflict.Reason),
             ArgumentException => new ProblemDetails
             {
                 Status = StatusCodes.Status400BadRequest,
@@ -60,17 +76,10 @@ public class ProblemDetailsExceptionHandler(ILogger<ProblemDetailsExceptionHandl
         return true;
     }
 
-    private static ProblemDetails BuildConflictProblem(DomainConflictException conflict)
+    private static ProblemDetails WithReason(ProblemDetails problemDetails, string reason)
     {
-        ProblemDetails problemDetails = new()
-        {
-            Status = conflict.StatusCode,
-            Title = "Regelbrudd",
-            Detail = conflict.Message,
-            Type = $"https://sportforalle.no/errors/{ToKebabCase(conflict.Reason)}",
-        };
-
-        problemDetails.Extensions["reason"] = conflict.Reason;
+        problemDetails.Type = $"https://sportforalle.no/errors/{ToKebabCase(reason)}";
+        problemDetails.Extensions["reason"] = reason;
 
         return problemDetails;
     }

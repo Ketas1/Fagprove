@@ -71,6 +71,14 @@ short sequence, not a place where rules or mapping logic accumulate.
   by manually testing through Scalar after the automated tests had already
   passed - see the next point for why.
 
+- **The calling Staff member** comes from `Helpers/CurrentUserContext.cs`
+  (injected, scoped), not a `staffId: null` literal - call
+  `currentUser.RequireStaffId()` wherever an entity constructor or a
+  state-transition method takes a `staffId`/`createdByStaffId`. It throws
+  only if `RequireLinkedStaffMiddleware` somehow failed to guarantee a
+  linked Staff member, so it does not need the null-forgiving operator - see
+  `docs/adr/0019-staff-auth0-mapping.md`.
+
 **Services are the only layer that touches `AppDbContext`.** There is no
 repository layer; EF Core already is one. If the schema changes, use the
 `ef-migration` skill.
@@ -89,8 +97,15 @@ repository layer; EF Core already is one. If the schema changes, use the
 
 - **DTOs in and out.** Entities never cross the API boundary.
 - **Authorisation on the endpoint itself.** Every endpoint requires
-  authentication; a `Staff` endpoint must reject a `User` token even if the UI
-  never renders the button. Hiding a control is not access control.
+  authentication *and* a Staff member linked to the caller's Auth0 account
+  (`RequireLinkedStaffMiddleware`, see `docs/adr/0019-staff-auth0-mapping.md`)
+  - a `Staff` endpoint must also reject a `User` token even if the UI never
+  renders the button, once roles are built. Hiding a control is not access
+  control. **If this endpoint genuinely needs to work for an unlinked
+  caller** (only true for the Staff bootstrap endpoints and the health
+  check so far), mark it `[AllowUnlinkedStaff]` explicitly - forgetting this
+  on an endpoint that needs it makes it block itself with `403`, not fail
+  open.
 - Validate input before it reaches the service.
 
 ### 5. Errors
@@ -120,6 +135,7 @@ in use (see `05-api.md` for the current, complete list):
 | Outside 3-18 years (checked at borrower registration, not at loan time) | `422` | `BorrowerOutsideAgeRange` |
 | A loan is already returned or lost | `409` | `LoanAlreadyClosed` |
 | A unique field (category name, equipment serial number) is already in use | `409` | `Duplicate<Thing>` |
+| Authenticated but not linked to a Staff profile | `403` | `StaffNotLinked` |
 
 Never build the detail text from the entity's own (English) exception message -
 `ProblemDetails` content is user-facing, and user-facing text is Norwegian, see
@@ -151,6 +167,13 @@ Testcontainers is not set up yet; tests run against the shared Docker database
 (`Guid.NewGuid()`) for anything that must be unique, since fixed names would
 collide across test runs.
 
+`AuthenticatedWebApplicationFactory` seeds and links a Staff row for its
+fixed test subject by default, so ordinary authenticated tests need nothing
+extra to pass `RequireLinkedStaffMiddleware`. To test the unlinked path
+deliberately, pass `new(seedLinkedStaff: false, subject: $"auth0|{Guid.NewGuid()}")`
+- always with a fresh, random subject, since the default one is shared with
+every other test and may already be linked by the time this one runs.
+
 ### 7. Document
 
 Add the endpoint to the table in `docs/05-api.md`, including its role and any
@@ -160,7 +183,8 @@ error reason it can return.
 
 - [ ] Business rule is on the entity or in the service, not in the controller
 - [ ] Entity unit test covers the rule, including the failure case
-- [ ] Endpoint requires authentication, and the correct role
+- [ ] Endpoint requires authentication, a linked Staff member, and (once
+      built) the correct role - or is deliberately `[AllowUnlinkedStaff]`
 - [ ] Errors return `ProblemDetails` with a `reason`
 - [ ] Integration test covers success, block and authorisation
 - [ ] Entity is not exposed - DTO in and out

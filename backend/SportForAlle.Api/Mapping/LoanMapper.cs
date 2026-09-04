@@ -22,5 +22,7 @@ public static class LoanMapper
             loan.DueDate,
             loan.ReturnedAt,
             loan.DaysLate,
-            loan.Status);
+            loan.Status,
+            loan.CreatedByStaffId,
+            loan.UpdatedByStaffId);
 }

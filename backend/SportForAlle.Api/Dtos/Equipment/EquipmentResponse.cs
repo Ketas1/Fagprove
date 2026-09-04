@@ -9,4 +9,6 @@ public record EquipmentResponse(
     Guid CategoryId,
     string CategoryName,
     EquipmentCondition Condition,
-    EquipmentStatus Status);
+    EquipmentStatus Status,
+    Guid? CreatedByStaffId,
+    Guid? UpdatedByStaffId);

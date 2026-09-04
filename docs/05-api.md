@@ -13,7 +13,11 @@
 - Alle svar er JSON. Feltnavn i `camelCase`.
 - Tidspunkter i ISO 8601 med UTC-tidssone.
 - Entiteter eksponeres aldri direkte. Alt går via DTO-er.
-- Alle endepunkter krever autentisering med mindre noe annet er dokumentert.
+- Alle endepunkter krever autentisering med mindre noe annet er dokumentert,
+  og de fleste krever i tillegg en `Staff`-profil koblet til kontoen - se
+  `06-autentisering.md`. De tre unntakene (helsesjekken og de to
+  Staff-bootstrap-endepunktene) er markert "Enhver innlogget bruker" i
+  tabellene under, i stedet for "Staff".
 
 ## Feilhåndtering
 
@@ -34,7 +38,7 @@ mellom feiltyper maskinelt.
 | --- | --- |
 | `400` | Ugyldig forespørsel, feil i modellvalidering |
 | `401` | Mangler eller ugyldig token |
-| `403` | Autentisert, men mangler rollen |
+| `403` | Autentisert, men ikke koblet til en `Staff`-profil (`reason: StaffNotLinked`, se `06-autentisering.md`) eller - når det bygges - mangler rollen |
 | `404` | Ressursen finnes ikke |
 | `409` | Regelbrudd - blokkert utlån, utstyr ikke ledig, låntaker utestengt |
 | `422` | Forespørselen er syntaktisk riktig, men semantisk umulig |
@@ -61,6 +65,9 @@ Oversettelsen fra unntak til `ProblemDetails` skjer på ett sted:
 | `DuplicateCategoryName` | `409` | `POST /api/equipment-categories` - navnet er allerede i bruk |
 | `DuplicateSerialNumber` | `409` | `POST /api/equipment` - serienummeret er allerede i bruk |
 | `EquipmentHasLoanHistory` | `409` | `DELETE /api/equipment/{id}` - utstyret har vært del av et utlån |
+| `StaffNotLinked` | `403` | Ethvert endepunkt uten `[AllowUnlinkedStaff]` - brukeren er autentisert, men ikke koblet til en `Staff`-profil, se `06-autentisering.md` |
+| `StaffAlreadyLinked` | `409` | `POST /api/staff/{id}/link-me` - profilen er allerede koblet til en Auth0-konto |
+| `Auth0AccountAlreadyLinked` | `409` | `POST /api/staff/{id}/link-me` - denne Auth0-kontoen er allerede koblet til en annen profil |
 
 ## Endepunkter
 
@@ -72,7 +79,20 @@ innlogget; det finnes ingen rollesjekk.
 
 | Metode | Rute | Rolle | Beskrivelse |
 | --- | --- | --- | --- |
-| `GET` | `/api/health` | Enhver innlogget bruker | Rapporterer om API-et kjører og om databasen er tilgjengelig. Krever autentisering, som alle andre endepunkter. |
+| `GET` | `/api/health` | Enhver innlogget bruker | Rapporterer om API-et kjører og om databasen er tilgjengelig. Krever autentisering, men ikke en koblet `Staff`-profil (`[AllowUnlinkedStaff]`) - en operasjonell sjekk, ikke domenedata. |
+
+### Ansatte
+
+Bygget 2026-09-04 sammen med koblingen mellom `Staff` og Auth0, se
+[ADR-0019](./adr/0019-staff-auth0-mapping.md) og `06-autentisering.md`. Alle
+tre er `[AllowUnlinkedStaff]` - de finnes nettopp for å la en ukoblet bruker
+bli koblet.
+
+| Metode | Rute | Rolle | Beskrivelse |
+| --- | --- | --- | --- |
+| `GET` | `/api/staff` | Enhver innlogget bruker | Liste, slik en ukoblet bruker kan se om profilen sin allerede finnes |
+| `POST` | `/api/staff` | Enhver innlogget bruker | Registrer en ny profil (kun navn) |
+| `POST` | `/api/staff/{id}/link-me` | Enhver innlogget bruker | Kobler den innloggede brukerens eget Auth0-`sub` til profilen. Ingen forespørselskropp. `404` hvis profilen ikke finnes, `409 StaffAlreadyLinked` hvis den allerede er koblet, `409 Auth0AccountAlreadyLinked` hvis denne kontoen allerede er koblet et annet sted |
 
 ### Utstyrskategorier
 
@@ -174,4 +194,6 @@ uten database, se [`07-testing.md`](./07-testing.md).
 
 To reelle feil ble funnet og rettet mens dette laget ble bygget, se
 "Erfaring fra implementeringen" i
-[ADR-0017](./adr/0017-global-exception-handler.md).
+[ADR-0017](./adr/0017-global-exception-handler.md). En tredje, i
+`TestAuthHandler` selv, ble funnet og rettet da Staff↔Auth0-koblingen ble
+lagt til - se [ADR-0019](./adr/0019-staff-auth0-mapping.md).

@@ -80,5 +80,27 @@ public class GuardiansEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
-    private sealed record GuardianPayload(Guid Id, string Name, string Email, string Phone);
+    [Fact]
+    public async Task Create_populates_CreatedByStaffId_with_a_real_staff_member()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/guardians", new
+        {
+            Name = "Per Hansen",
+            Email = $"{Guid.NewGuid()}@example.no",
+            Phone = "12345678",
+        });
+        GuardianPayload created = (await createResponse.Content.ReadFromJsonAsync<GuardianPayload>())!;
+
+        Assert.NotNull(created.CreatedByStaffId);
+
+        List<StaffPayload>? staffMembers = await client.GetFromJsonAsync<List<StaffPayload>>("/api/staff");
+        Assert.Contains(staffMembers!, staff => staff.Id == created.CreatedByStaffId);
+    }
+
+    private sealed record GuardianPayload(Guid Id, string Name, string Email, string Phone, Guid? CreatedByStaffId);
+
+    private sealed record StaffPayload(Guid Id, string Name, string? Auth0UserId);
 }

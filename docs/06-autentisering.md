@@ -1,7 +1,10 @@
 # Authentication og authorization
 
-> **Status:** authentication er bygget og virker end-to-end. Authorization
-> (rollebasert tilgang) er bevisst ikke bygget ennå - se "Roller" under.
+> **Status:** authentication er bygget og virker end-to-end. Siden
+> 2026-09-04 kreves i tillegg at brukeren er koblet til en `Staff`-profil,
+> se "Kobling mellom Staff og Auth0" under - det er fortsatt ikke det samme
+> som rollebasert autorisasjon, som er bevisst ikke bygget ennå, se
+> "Roller".
 
 Authentication settes opp **før** resten av systemet, fordi det er en sentral del
 av sikkerheten og fordi det er enklere å bygge funksjonalitet inn i et system som
@@ -60,17 +63,63 @@ uformell merkelapp, ikke noe systemet vet om.
 Når dette bygges, tildeles rollene i Auth0 og legges inn i tokenet som et
 claim via en Auth0 Action. Claim-navn og mapping i backend er ikke bestemt.
 
+## Kobling mellom Staff og Auth0
+
+Bygget 2026-09-04, se [ADR-0019](./adr/0019-staff-auth0-mapping.md) for
+resonnementet og alternativene som ble vurdert.
+
+Et Auth0 access token bærer bare `sub` (subjektidentifikatoren) - ikke navn
+eller e-post, med mindre egendefinerte claims er lagt til, noe som ikke er
+gjort her. Systemet kan derfor ikke automatisk opprette en ferdig utfylt
+`Staff`-profil ved første innlogging; koblingen gjøres i stedet via to nye
+endepunkter, begge nådd av enhver innlogget bruker, koblet eller ikke:
+
+1. `POST /api/staff` - registrer en `Staff`-profil (kun navn).
+2. `POST /api/staff/{id}/link-me` - kobler den innloggede brukerens eget
+   `sub`-claim til den profilen. Ingen forespørselskropp - backend-et leser
+   `sub` fra token.
+
+`GET /api/staff` er også nådd uten kobling, slik en ansatt kan sjekke om
+profilen sin allerede finnes før de oppretter en ny.
+
+I praksis gjøres dette gjennom **`/dashboard/staff`** i frontend - en enkel
+side (`components/StaffLinkPanel.tsx`) med et skjema for å opprette en
+profil og en "Koble til min konto"-knapp per ukoblet profil i listen. Dette
+er den tiltenkte måten å koble seg til på; å kalle de to endepunktene
+direkte (for eksempel via Scalar) er bare et alternativ for feilsøking, se
+`11-utviklingsmiljo.md`.
+
+**Fra og med denne endringen avvises et kall fra en autentisert, men ukoblet
+bruker med `403 Forbidden` og `reason: StaffNotLinked`** - se "Beskyttelse av
+backend" under. De tre endepunktene over er unntatt nettopp for å løse
+dette: uten et sted å koble seg til, ville ingen noensinne kommet forbi
+sperren.
+
+Én Auth0-konto kan bare kobles til én `Staff`-profil, og én `Staff`-profil
+kan bare kobles til én Auth0-konto - håndhevet både i tjenestelaget
+(`StaffRules`, med en lesbar `reason`) og av en unik indeks i databasen som
+backstop, se `04-databasedesign.md`.
+
 ## Beskyttelse av backend
 
 - **Alle endepunkter krever autentisering som standard**, håndhevet med en
   fallback-policy (`RequireAuthenticatedUser`) satt i `Program.cs` - ikke med
   `[Authorize]` lagt til på hver kontroller for seg. Et unntak (for eksempel
-  et fremtidig offentlig endepunkt) må markeres eksplisitt med
-  `[AllowAnonymous]`.
+  et fremtidig offentlig endepunkt, eller Scalar/OpenAPI i utviklingsmiljøet,
+  se `11-utviklingsmiljo.md`) må markeres eksplisitt med `[AllowAnonymous]`.
 - Kall uten gyldig token gir `401`. Verifisert i
   `HealthEndpointTests.Health_endpoint_without_a_token_returns_401`.
+- **Et lag til, siden 2026-09-04:** en autentisert forespørsel må i tillegg
+  komme fra en bruker koblet til en `Staff`-profil - se "Kobling mellom
+  Staff og Auth0" under. Håndheves av
+  `Middleware/RequireLinkedStaffMiddleware.cs`, ikke av fallback-policyen -
+  et endepunkt som skal være unntatt (for eksempel helsesjekken, eller
+  Staff-endepunktene selv) markeres eksplisitt med `[AllowUnlinkedStaff]`,
+  se `docs/adr/0019-staff-auth0-mapping.md`.
 - Rollebasert autorisasjon (`403` ved feil rolle) er ikke bygget - se
-  "Roller" over.
+  "Roller" over. **Ikke forveksle med det forrige punktet:** «koblet til en
+  Staff-profil» er ikke det samme som «har riktig rolle». Alle koblede
+  brukere har i dag lik tilgang.
 
 ## Beskyttelse av frontend
 
@@ -140,3 +189,12 @@ cross-origin-forespørsel å tillate.
   end to end-testing er ikke satt opp, se `07-testing.md`.
 - **Et kall med `User`-token mot et `Staff`-endepunkt gir `403`:** ikke
   relevant ennå, siden roller ikke er bygget.
+- **Et kall fra en autentisert, men ukoblet bruker gir `403 StaffNotLinked`,
+  mens Staff-endepunktene og helsesjekken forblir nådd:** dekket i
+  `RequireLinkedStaffMiddlewareTests.cs`.
+- **Kobling, og de to konfliktene den kan gi** (en profil som allerede er
+  koblet, en konto allerede koblet til en annen profil): dekket i
+  `StaffEndpointTests.cs` og enhetstestet direkte i `StaffRulesTests.cs`.
+- **`CreatedByStaffId` populeres med en reell, koblet ansatt** ved en
+  vanlig oppretting: dekket i
+  `GuardiansEndpointTests.Create_populates_CreatedByStaffId_with_a_real_staff_member`.

@@ -19,5 +19,7 @@ public static class BorrowerMapper
             guardianName,
             borrower.LateReturnCount,
             borrower.IsUnreliable,
-            borrower.Status);
+            borrower.Status,
+            borrower.CreatedByStaffId,
+            borrower.UpdatedByStaffId);
 }

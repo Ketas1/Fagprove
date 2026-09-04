@@ -18,5 +18,7 @@ public static class EquipmentMapper
             equipment.CategoryId,
             categoryName,
             equipment.Condition,
-            equipment.Status);
+            equipment.Status,
+            equipment.CreatedByStaffId,
+            equipment.UpdatedByStaffId);
 }

@@ -9,7 +9,7 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class LoanService(AppDbContext dbContext, IClock clock)
+public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
 {
     private static readonly LoanStatus[] _openStatuses = [LoanStatus.Active, LoanStatus.Overdue];
 
@@ -45,8 +45,9 @@ public class LoanService(AppDbContext dbContext, IClock clock)
         LoanRules.EnsureBorrowerCanBorrow(borrower, openLoans, clock);
         LoanRules.EnsureEquipmentAvailable(equipment);
 
-        Loan loan = new(borrower.Id, equipment.Id, request.DueDate, clock, createdByStaffId: null);
-        equipment.MarkOnLoan(clock, staffId: null);
+        Guid staffId = currentUser.RequireStaffId();
+        Loan loan = new(borrower.Id, equipment.Id, request.DueDate, clock, staffId);
+        equipment.MarkOnLoan(clock, staffId);
 
         dbContext.Loans.Add(loan);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -72,14 +73,15 @@ public class LoanService(AppDbContext dbContext, IClock clock)
             .FirstOrDefaultAsync(b => b.Id == loan.BorrowerId, cancellationToken)
             ?? throw new NotFoundException("Fant ikke låntaker.");
 
-        loan.Return(clock, staffId: null);
-        equipment.Return(request.Condition, clock, staffId: null);
+        Guid staffId = currentUser.RequireStaffId();
+        loan.Return(clock, staffId);
+        equipment.Return(request.Condition, clock, staffId);
 
         // "Låntakerstatus" in docs/03-domenemodell.md: a late return flags
         // the borrower, it does not block the return itself.
         if (loan.DaysLate is > 0)
         {
-            borrower.RecordLateReturn(clock, staffId: null);
+            borrower.RecordLateReturn(clock, staffId);
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);

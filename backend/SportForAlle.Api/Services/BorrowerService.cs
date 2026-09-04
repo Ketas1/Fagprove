@@ -9,7 +9,7 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class BorrowerService(AppDbContext dbContext, IClock clock)
+public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
 {
     public async Task<IReadOnlyList<BorrowerResponse>> GetAllAsync(CancellationToken cancellationToken)
     {
@@ -39,6 +39,8 @@ public class BorrowerService(AppDbContext dbContext, IClock clock)
 
         BorrowerRules.EnsureAgeInRange(request.DateOfBirth, clock);
 
+        Guid staffId = currentUser.RequireStaffId();
+
         Guardian guardian = linksExistingGuardian
             ? await dbContext.Guardians.FirstOrDefaultAsync(g => g.Id == request.GuardianId, cancellationToken)
                 ?? throw new NotFoundException("Fant ikke foresatt.")
@@ -47,14 +49,14 @@ public class BorrowerService(AppDbContext dbContext, IClock clock)
                 request.NewGuardian.Email,
                 request.NewGuardian.Phone,
                 clock,
-                createdByStaffId: null);
+                staffId);
 
         if (createsNewGuardian)
         {
             dbContext.Guardians.Add(guardian);
         }
 
-        Borrower borrower = new(request.Name, request.DateOfBirth, guardian.Id, clock, createdByStaffId: null);
+        Borrower borrower = new(request.Name, request.DateOfBirth, guardian.Id, clock, staffId);
         dbContext.Borrowers.Add(borrower);
 
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -68,7 +70,7 @@ public class BorrowerService(AppDbContext dbContext, IClock clock)
         Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
             ?? throw new NotFoundException("Fant ikke låntaker.");
 
-        borrower.Rename(request.Name, clock, staffId: null);
+        borrower.Rename(request.Name, clock, currentUser.RequireStaffId());
         await dbContext.SaveChangesAsync(cancellationToken);
 
         Guardian guardian = await dbContext.Guardians.FirstAsync(g => g.Id == borrower.GuardianId, cancellationToken);

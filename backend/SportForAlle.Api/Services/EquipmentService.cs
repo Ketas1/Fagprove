@@ -9,7 +9,7 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class EquipmentService(AppDbContext dbContext, IClock clock)
+public class EquipmentService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
 {
     public async Task<IReadOnlyList<EquipmentResponse>> GetAllAsync(
         EquipmentStatus? status, Guid? categoryId, CancellationToken cancellationToken)
@@ -43,7 +43,7 @@ public class EquipmentService(AppDbContext dbContext, IClock clock)
         }
 
         Equipment equipment = new(
-            request.Name, request.SerialNumber, request.CategoryId, request.Condition, clock, createdByStaffId: null);
+            request.Name, request.SerialNumber, request.CategoryId, request.Condition, clock, currentUser.RequireStaffId());
 
         dbContext.Equipment.Add(equipment);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -61,8 +61,9 @@ public class EquipmentService(AppDbContext dbContext, IClock clock)
             .FirstOrDefaultAsync(c => c.Id == request.CategoryId, cancellationToken)
             ?? throw new NotFoundException("Fant ikke kategori.");
 
-        equipment.Rename(request.Name, clock, staffId: null);
-        equipment.Recategorize(request.CategoryId, clock, staffId: null);
+        Guid staffId = currentUser.RequireStaffId();
+        equipment.Rename(request.Name, clock, staffId);
+        equipment.Recategorize(request.CategoryId, clock, staffId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

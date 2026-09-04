@@ -54,7 +54,7 @@ oversettelsene.
 | [03-domenemodell.md](./03-domenemodell.md) | Domenemodell, tilstandsmaskiner, forretningsregler og ordliste | Ferdig |
 | [04-databasedesign.md](./04-databasedesign.md) | Databaseskjema, tabeller, relasjoner og migrasjoner | Påbegynt |
 | [05-api.md](./05-api.md) | Backend-API, endepunkter, feilhåndtering | Påbegynt |
-| [06-autentisering.md](./06-autentisering.md) | Authentication og authorization med Auth0 | Ikke påbegynt |
+| [06-autentisering.md](./06-autentisering.md) | Authentication og authorization med Auth0 | Påbegynt |
 | [07-testing.md](./07-testing.md) | Teststrategi, testnivåer og hva som testes hvor | Påbegynt |
 | [08-sikkerhet.md](./08-sikkerhet.md) | Sikkerhetstiltak og trusselvurdering | Påbegynt |
 | [09-lover-og-regler.md](./09-lover-og-regler.md) | GDPR og personvern, med vekt på data om barn | Ferdig |
@@ -62,6 +62,7 @@ oversettelsene.
 | [11-utviklingsmiljo.md](./11-utviklingsmiljo.md) | Prosjektoppsett, teknologistack, filstruktur, Docker og CI | Ferdig |
 | [12-lisenser-og-vilkar.md](./12-lisenser-og-vilkar.md) | Pakkelisenser og vilkår for eksterne tjenester | Påbegynt |
 | [adr/](./adr/) | Architecture Decision Records - alle tekniske valg | Løpende |
+| [arbeidslogg.md](./arbeidslogg.md) | Daglig arbeidslogg - grunnlag for sluttrapporten | Løpende |
 
 Dokumenter som ikke er ferdige finnes allerede med struktur og overskrifter,
 slik at de fylles ut når arbeidet gjøres.

@@ -12,4 +12,6 @@ public record LoanResponse(
     DateTimeOffset DueDate,
     DateTimeOffset? ReturnedAt,
     int? DaysLate,
-    LoanStatus Status);
+    LoanStatus Status,
+    Guid? CreatedByStaffId,
+    Guid? UpdatedByStaffId);

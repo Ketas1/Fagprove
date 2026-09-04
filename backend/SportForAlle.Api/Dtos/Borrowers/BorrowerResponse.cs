@@ -10,4 +10,6 @@ public record BorrowerResponse(
     string GuardianName,
     int LateReturnCount,
     bool IsUnreliable,
-    BorrowerStatus Status);
+    BorrowerStatus Status,
+    Guid? CreatedByStaffId,
+    Guid? UpdatedByStaffId);

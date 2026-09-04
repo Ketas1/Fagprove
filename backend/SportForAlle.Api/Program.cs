@@ -68,6 +68,9 @@ builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
 
 builder.Services.AddSingleton<IClock, SystemClock>();
 
+builder.Services.AddScoped<CurrentUserContext>();
+
+builder.Services.AddScoped<StaffService>();
 builder.Services.AddScoped<EquipmentCategoryService>();
 builder.Services.AddScoped<GuardianService>();
 builder.Services.AddScoped<BorrowerService>();
@@ -171,6 +174,14 @@ app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+// An authenticated request must also come from a Staff member linked to
+// their Auth0 account, not just carry a valid token - see
+// docs/adr/0019-staff-auth0-mapping.md. Runs after UseAuthorization() so it
+// only ever sees requests that already passed the base authenticated-user
+// policy above.
+app.UseMiddleware<RequireLinkedStaffMiddleware>();
+
 app.MapControllers();
 
 await app.RunAsync();
