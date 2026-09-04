@@ -241,7 +241,17 @@ Teststrategien er beskrevet i [`07-testing.md`](./07-testing.md).
 `.github/workflows/ci.yml` kjører på hver push og pull request mot `main`:
 
 1. **Backend** - `dotnet restore`, `dotnet build` med advarsler som feil,
-   `dotnet test` og `dotnet format --verify-no-changes` mot `.editorconfig`.
+   deretter `dotnet ef database update` mot en midlertidig PostgreSQL-
+   tjenestecontainer (`postgres:17-alpine`, samme image som
+   `docker-compose.yml`) før `dotnet test` kjøres mot den, og til slutt
+   `dotnet format --verify-no-changes` mot `.editorconfig`. Containeren er tom
+   og finnes kun for denne jobben - uten volum, så ingenting overlever mellom
+   CI-kjøringer, i motsetning til den lokale databasen. Siden ingenting i
+   appen selv kaller `Database.Migrate()` ved oppstart, installeres
+   `dotnet-ef` som globalt verktøy i jobben (det er ikke satt opp som lokalt
+   verktøy i repoet) og kjører migrasjonene eksplisitt. Se
+   [ADR-0008](./adr/0008-github-actions.md) for hvorfor en tjenestecontainer
+   brukes fremfor mocking.
 2. **Frontend** - `bun install`, `bun run lint`, `bun run test` og
    `bun run build`.
 

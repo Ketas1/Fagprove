@@ -58,6 +58,24 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    # A throwaway PostgreSQL for the endpoint tests to run against, same image
+    # as docker-compose.yml. It only lives for this job - no volume, so nothing
+    # persists between runs. Credentials match .env.example; they are not a
+    # real secret, just what the ephemeral container and the app agree on.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: sportforalle
+          POSTGRES_PASSWORD: change-me-locally
+          POSTGRES_DB: sportforalle
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sportforalle -d sportforalle"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     steps:
       - uses: actions/checkout@v4
 
@@ -72,10 +90,33 @@ jobs:
       - name: Build
         run: dotnet build --configuration Release --no-restore -warnaserror
 
-      # Integration tests start their own PostgreSQL through Testcontainers,
-      # using the Docker daemon that is already available on the runner.
+      # dotnet-ef is not set up as a local tool in this repo (no
+      # dotnet-tools.json), so CI installs it on demand. Keep this version
+      # aligned with Microsoft.EntityFrameworkCore.Design in
+      # SportForAlle.Api.csproj.
+      - name: Install EF Core tool
+        run: |
+          dotnet tool install --global dotnet-ef --version 10.0.4
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      # Nothing in the app calls Database.Migrate() at startup (see
+      # docs/11-utviklingsmiljo.md) - locally that is done by hand with
+      # `dotnet ef database update` against the Docker database. CI needs the
+      # same step against the service container above before tests can pass.
+      - name: Apply migrations
+        run: >-
+          dotnet ef database update
+          --project SportForAlle.Api
+          --startup-project SportForAlle.Api
+          --configuration Release
+          --no-build
+        env:
+          ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sportforalle;Username=sportforalle;Password=change-me-locally
+
       - name: Test
         run: dotnet test --configuration Release --no-build --verbosity normal
+        env:
+          ConnectionStrings__DefaultConnection: Host=localhost;Port=5432;Database=sportforalle;Username=sportforalle;Password=change-me-locally
 
       - name: Check formatting
         run: dotnet format --verify-no-changes --no-restore
