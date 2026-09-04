@@ -207,6 +207,14 @@ children get older.
   with a machine-readable reason, not a bare `400`.
 - EF Core is Code First. Schema changes happen through a migration - never by
   editing the database directly.
+- **Logging: one deliberate line beats a firehose.** When something needs to be
+  visible, add a specific `logger.LogInformation(...)`/`console.error(...)` at
+  the point that matters, with a message that says what happened. Do not reach
+  for raising a whole framework log category (`Microsoft.AspNetCore` to
+  `Information`, for example) - that turns on every internal diagnostic in that
+  category at once (hosting, routing, MVC action invocation, result execution),
+  producing a wall of output for what should be one line. This applies to both
+  layers, not just backend.
 
 ### Migrations - do not skip these
 
@@ -222,8 +230,9 @@ dotnet ef database update --project SportForAlle.Api --startup-project SportForA
 ```
 
 **Before running either, confirm the connection string points at the Docker
-database.** `ConnectionStrings:DefaultConnection` in
-`SportForAlle.Api/appsettings.Development.json` must use **`Host=localhost;Port=5433`**,
+database.** `ConnectionStrings__DefaultConnection` in the root **`.env`**
+(loaded by `DotNetEnv` in `Program.cs` - see `docs/11-utviklingsmiljo.md`; it
+is not in `appsettings.Development.json`) must use **`Host=localhost;Port=5433`**,
 and the container must be up:
 
 ```bash
@@ -394,6 +403,22 @@ nothing, because it has to be understood and then unpicked.
   permission.
 - Never push, merge, or open a pull request unless asked directly.
 - Creating a branch is fine. Committing to it is not.
+
+### Dev servers
+
+- If the user's own `dotnet run` or `bun dev` is holding a file lock that
+  blocks a build, or a dev server needs a clean restart to test something,
+  stop it and start it again yourself - don't just ask and wait. This is a
+  standing exception to asking before killing a process, scoped to this
+  project's own frontend/backend dev servers specifically.
+- **When something looks visually or behaviorally wrong and the source code
+  doesn't explain it, restart clean before debugging further.** Turbopack and
+  `dotnet run` have both produced stale state this project that looked like
+  real bugs - a route handler change not taking effect, styling that appeared
+  unrendered - and were fixed by a full stop/restart (`rm -rf .next` for the
+  frontend), not a code change. Rule out staleness first with a clean restart
+  and a direct check (curl the actual output, read the generated CSS) before
+  spending time chasing a hypothesis the code doesn't support.
 
 ### Implementation
 

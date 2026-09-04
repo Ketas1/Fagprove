@@ -112,13 +112,19 @@ bun dev
 
 | Tjeneste | Adresse |
 | --- | --- |
-| Frontend | http://localhost:3000 |
+| Frontend (innlogging) | http://localhost:3000 |
+| Frontend (dashbord, krever innlogging) | http://localhost:3000/dashboard |
 | API | http://localhost:5080 |
 | API-dokumentasjon | http://localhost:5080/openapi/v1.json |
 | Database | localhost:5433 |
 
-Forsiden viser status for API og database, slik at det er lett å se om alle tre
-lagene henger sammen.
+Alle endepunkter i API-et krever autentisering som standard, **inkludert**
+`/openapi/v1.json` - å åpne den direkte i nettleseren uinnlogget gir `401`,
+ikke spesifikasjonen. Se [`06-autentisering.md`](./06-autentisering.md).
+
+Dashbordet viser status for API og database, slik at det er lett å se om alle
+tre lagene henger sammen - hentet gjennom frontendens egen proxy, se
+[ADR-0015](./adr/0015-proxied-backend-for-frontend.md).
 
 ### Hvorfor databasen ligger på port 5433
 
@@ -129,6 +135,42 @@ serveren i stedet for containeren. Feilen viser seg som
 
 Inne i compose-nettverket lytter databasen fortsatt på 5432. Porten kan endres
 med `POSTGRES_PORT` i `.env`.
+
+### Én delt `.env` for hele stacken
+
+`.env` ligger i repo-roten, ikke inne i `backend/` eller `frontend/`, slik at
+backend og frontend deler ett sett med variabler i stedet for å holde to
+kopier synkronisert. Ingen av de to rammeverkene leser en fil i en
+foreldremappe av seg selv, så begge laster den eksplisitt:
+
+- **Backend** bruker pakken `DotNetEnv`. `Program.cs` leter etter en `.env`
+  ved å gå oppover fra arbeidskatalogen til den finner én, og laster den før
+  `WebApplication.CreateBuilder` kjører - slik at verdiene når konfigurasjonen
+  gjennom den vanlige miljøvariabel-provideren ASP.NET Core allerede har.
+  Finnes ingen `.env` (slik som i CI), hoppes lastingen stille over.
+  **`appsettings.Development.json` har bevisst ingen `ConnectionStrings`-
+  seksjon lenger** - tilkoblingsstrengen kommer utelukkende fra `.env`.
+- **Frontend** bruker `@next/env`, pakken Next.js selv bruker internt til
+  dette formålet. Den kalles to steder: i `next.config.ts` (for vanlig
+  server-side og build-time-kode), og igjen i `src/lib/auth0.ts`. Grunnen til
+  at den må lastes to steder: Proxy (`src/proxy.ts`, tidligere kalt
+  Middleware) kjører i en egen eksekveringskontekst som ikke arver
+  `process.env`-endringer gjort fra `next.config.ts`, selv om begge kjører på
+  Node.js-runtimen. `Auth0Client` konstrueres i `lib/auth0.ts`, som importeres
+  av både sider og av proxyen, så den må laste `.env` selv for å fungere i
+  begge kontekster.
+
+Miljøvariabler har forrang over `appsettings.Development.json` i ASP.NET
+Cores standard konfigurasjonsrekkefølge, så en verdi i `.env` overstyrer alt
+annet for backend.
+
+**Én verdi må endres etter `Host=db` i `.env.example`:**
+`ConnectionStrings__DefaultConnection` der peker på `Host=db;Port=5432` - det
+Docker-interne nettverksnavnet, som bare finnes når selve API-et også kjører
+som en compose-tjeneste (den kommenterte `api`-tjenesten i
+`docker-compose.yml`, ikke aktiv ennå). For den dokumenterte arbeidsflyten -
+database i Docker, **backend kjørt lokalt** - må den lokale `.env` i stedet
+bruke `Host=localhost;Port=5433`, av samme grunn som beskrevet over.
 
 ## Database og migrasjoner
 

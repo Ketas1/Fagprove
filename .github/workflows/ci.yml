@@ -110,7 +110,7 @@ jobs:
       - name: Build
         run: bun run build
         env:
-          NEXT_PUBLIC_API_BASE_URL: http://localhost:5080
+          API_BASE_URL: http://localhost:5080
           AUTH0_SECRET: 0000000000000000000000000000000000000000000000000000000000000000
           APP_BASE_URL: http://localhost:3000
           AUTH0_DOMAIN: example.eu.auth0.com

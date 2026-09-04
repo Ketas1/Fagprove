@@ -9,12 +9,14 @@ namespace SportForAlle.Api.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
-public class HealthController(AppDbContext dbContext) : ControllerBase
+public class HealthController(AppDbContext dbContext, ILogger<HealthController> logger) : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetAsync(CancellationToken cancellationToken)
     {
         bool databaseReachable = await dbContext.Database.CanConnectAsync(cancellationToken);
+
+        logger.LogInformation("Health check requested. Database reachable: {DatabaseReachable}", databaseReachable);
 
         return Ok(new HealthResponse(
             Status: "ok",

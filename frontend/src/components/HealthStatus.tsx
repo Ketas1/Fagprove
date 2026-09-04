@@ -1,4 +1,6 @@
 import type { Health } from '@/types/health';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 type Props = {
   health: Health | null;
@@ -11,29 +13,37 @@ type Props = {
 export function HealthStatus({ health }: Props) {
   if (health === null) {
     return (
-      <p className="text-red-600 dark:text-red-400">
-        Får ikke kontakt med API-et.
-      </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Status</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Badge variant="destructive">Får ikke kontakt med API-et.</Badge>
+        </CardContent>
+      </Card>
     );
   }
 
   const databaseUp = health.database === 'up';
 
   return (
-    <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
-      <dt className="text-slate-500 dark:text-slate-400">API</dt>
-      <dd className="font-medium text-emerald-600 dark:text-emerald-400">Kjører</dd>
+    <Card>
+      <CardHeader>
+        <CardTitle>Status</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">API</span>
+          <Badge>Kjører</Badge>
+        </div>
 
-      <dt className="text-slate-500 dark:text-slate-400">Database</dt>
-      <dd
-        className={
-          databaseUp
-            ? 'font-medium text-emerald-600 dark:text-emerald-400'
-            : 'font-medium text-red-600 dark:text-red-400'
-        }
-      >
-        {databaseUp ? 'Tilkoblet' : 'Ikke tilkoblet'}
-      </dd>
-    </dl>
+        <div className="flex items-center justify-between">
+          <span className="text-muted-foreground">Database</span>
+          <Badge variant={databaseUp ? 'default' : 'destructive'}>
+            {databaseUp ? 'Tilkoblet' : 'Ikke tilkoblet'}
+          </Badge>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
