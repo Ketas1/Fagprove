@@ -173,6 +173,16 @@ children get older.
   `Services/`, `Models/`, `Dtos/`, `Data/`, `Mapping/`, `Validation/`,
   `Middleware/`, `Configuration/`, `Helpers/`. Not Clean Architecture; see
   `docs/adr/0012-lagdelt-monolitt.md`.
+- **Business-rule checks live in `Services/Rules/`**, one static class per
+  entity area (`LoanRules`, `BorrowerRules`, `EquipmentRules`), not as private
+  methods buried inside a service class. A service method should read as a
+  short sequence: load what it needs, call the rule checks, mutate the
+  entity, save. `Validation/` is the shared exception vocabulary those checks
+  throw (`NotFoundException`, `DomainConflictException`) and the global
+  exception handler catches - not rule logic itself. `Mapping/` holds one
+  static mapper class per entity (`BorrowerMapper.ToResponse(...)`) for
+  building response DTOs, called from the service after the rule checks pass.
+  See `docs/adr/0017-global-exception-handler.md`.
 - **Controllers call services. Services are the only layer that touches
   `AppDbContext`.** There is no repository layer - EF Core already is one. A
   controller reaching for the DbContext is a bug.

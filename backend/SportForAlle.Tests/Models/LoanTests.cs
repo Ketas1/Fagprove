@@ -49,6 +49,21 @@ public class LoanTests
     }
 
     [Fact]
+    public void IsOverdueNow_stays_true_once_status_has_already_been_materialised_to_overdue()
+    {
+        FakeClock clock = new();
+        Loan loan = CreateLoan(clock, TimeSpan.FromDays(1));
+        clock.Advance(TimeSpan.FromDays(2));
+        loan.RefreshOverdueStatus(clock);
+
+        // Once Status is materialised to Overdue, IsOverdueNow must keep
+        // reporting true - the blocked-loan check (business rule 2) relies
+        // on it regardless of whether a background job has run yet.
+        Assert.Equal(LoanStatus.Overdue, loan.Status);
+        Assert.True(loan.IsOverdueNow(clock));
+    }
+
+    [Fact]
     public void RefreshOverdueStatus_materialises_overdue_once_the_due_date_has_passed()
     {
         FakeClock clock = new();

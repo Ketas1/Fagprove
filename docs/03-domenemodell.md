@@ -166,14 +166,26 @@ Hva hvert steg registrerer:
 Reglene håndheves i domenelaget, ikke i grensesnittet.
 
 1. **Foresatt er påkrevd.** Et barn kan ikke låne før en foresatt er registrert og
-   koblet til barnet.
+   koblet til barnet. Håndheves ved registrering: `POST /api/borrowers` krever
+   enten en eksisterende `guardianId` eller nok informasjon til å opprette en ny
+   foresatt i samme kall - et barn kan rett og slett ikke opprettes uten, se
+   `05-api.md`.
 2. **Blokkering av nye utlån.** Et utlån avvises dersom låntakeren har minst ett
    lån med status `Overdue`, eller er utestengt. Dette er kjernemekanismen i
    løsningen på problem 1.
 3. **Utstyret må være ledig.** Kun utstyr med status `Available` kan lånes ut.
-4. **Alder.** Låntakeren må være mellom 3 og 18 år på utlånstidspunktet.
+4. **Alder.** Låntakeren må være mellom 3 og 18 år. Håndheves ved registrering av
+   barnet (`POST /api/borrowers`, `422 BorrowerOutsideAgeRange`), ikke ved hvert
+   utlån - en forenkling tatt bevisst for denne omgangen. Konsekvensen er at et
+   barn som blir eldre enn 18 år mens det fortsatt står i systemet, ikke blir
+   blokkert fra å låne av alder alene; det er ikke bygget noen periodisk
+   kontroll av dette.
 5. **Bilde ved utlån og retur.** Begge deler er dokumentasjonsgrunnlag for
-   erstatningskrav og utestengelser.
+   erstatningskrav og utestengelser. **Ikke håndhevet i CRUD-laget bygget
+   2026-09-04** - `POST /api/loans` og `POST /api/loans/{id}/return` krever i dag
+   ikke bilde, fordi lagringsløsningen for bilder ikke er valgt ennå (samme
+   begrunnelse som for `LoanPhoto` i `04-databasedesign.md`). Et bevisst,
+   dokumentert gap, ikke en forglemmelse.
 6. **Kontaktforsøk logges alltid** med dato, metode og resultat, slik at ansatte
    ser om foresatt allerede er kontaktet.
 7. **Forfall oppdages automatisk.** Ansatte skal aldri måtte sjekke manuelt.

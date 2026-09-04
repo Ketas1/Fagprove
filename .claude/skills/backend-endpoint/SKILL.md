@@ -39,8 +39,30 @@ Before wiring anything up. The rules worth testing hardest:
 ### 3. Service layer
 
 Add the service method in `SportForAlle.Api/Services/` that loads what it needs
-via `AppDbContext`, calls the entity, and saves. Orchestration only - no business
-rules here.
+via `AppDbContext`, calls the rule checks, calls the entity, saves, and maps
+the result to a response DTO. Orchestration only - a method should read as a
+short sequence, not a place where rules or mapping logic accumulate.
+
+- **Business-rule checks go in `Services/Rules/`**, one static class per
+  entity area (`LoanRules`, `BorrowerRules`, `EquipmentRules`) - not as
+  private methods inside the service class. They take entities already
+  loaded by the service (no `AppDbContext` dependency), so they can be unit
+  tested directly, and they throw `Validation.DomainConflictException` when a
+  rule is violated. This is what makes the rule checks reusable and testable
+  without pulling a database into the test.
+- **Mapping to a response DTO goes in `Mapping/`**, one static mapper class
+  per entity (`BorrowerMapper.ToResponse(...)`). If an entity has no
+  navigation property for something the DTO needs (most don't - see
+  `04-databasedesign.md`), the service joins it in itself and passes it to
+  the mapper as an extra argument.
+- **EF Core query gotcha:** if a query needs both a filter and a projection
+  into a named type (not an anonymous type), put the filter *inside* the same
+  query - as a `where` clause before the `select new SomeRecord(...)` - not
+  as a `.Where(...)` chained onto the already-projected `IQueryable<T>`. EF
+  Core cannot translate a predicate over members of an already
+  constructor-projected type; it throws `InvalidOperationException` with
+  "could not be translated" at query execution time, not at compile time. See
+  `docs/adr/0017-global-exception-handler.md`, "Erfaring fra implementeringen".
 
 **Services are the only layer that touches `AppDbContext`.** There is no
 repository layer; EF Core already is one. If the schema changes, use the
@@ -66,30 +88,52 @@ repository layer; EF Core already is one. If the schema changes, use the
 
 ### 5. Errors
 
-Return RFC 7807 `ProblemDetails` with a machine-readable `reason` the frontend
-can branch on.
+Don't build a `ProblemDetails` in the controller or service. Throw instead, and
+let `Middleware/ProblemDetailsExceptionHandler.cs` translate it - see
+`docs/adr/0017-global-exception-handler.md`:
+
+- Resource not found → throw `Validation.NotFoundException("Fant ikke ...")`.
+  Translated to `404`.
+- A business rule was violated → throw `Validation.DomainConflictException("SomeReason", "Norwegian detail text")`
+  from the rule check in `Services/Rules/`. Translated to `409` by default; pass
+  a third argument (`StatusCodes.Status422UnprocessableEntity`) for a request
+  that is syntactically fine but semantically impossible, like an age outside
+  the allowed range.
+
+The `reason` argument becomes the machine-readable `reason` field in the
+response, which is the whole point - the frontend uses it to tell the member of
+staff *why* something was blocked, not just that it was. Known reasons already
+in use (see `05-api.md` for the current, complete list):
 
 | Situation | Status | reason |
 | --- | --- | --- |
 | Borrower has an open overdue loan | `409` | `BorrowerHasOverdueLoan` |
-| Borrower is banned | `409` | `BorrowerIsBanned` |
+| Borrower is banned | `409` | `BorrowerBanned` |
 | Equipment is not available | `409` | `EquipmentNotAvailable` |
-| Borrower has no guardian | `409` | `BorrowerHasNoGuardian` |
-| Outside 3-18 years | `409` | `BorrowerOutsideAgeRange` |
+| Outside 3-18 years (checked at borrower registration, not at loan time) | `422` | `BorrowerOutsideAgeRange` |
+| A loan is already returned or lost | `409` | `LoanAlreadyClosed` |
+| A unique field (category name, equipment serial number) is already in use | `409` | `Duplicate<Thing>` |
 
-A blocked loan is a `409` with a reason, never a bare `400`. The frontend has to
-tell the member of staff *why* it was blocked - that explanation is the whole
-point of the mechanism.
+Never build the detail text from the entity's own (English) exception message -
+`ProblemDetails` content is user-facing, and user-facing text is Norwegian, see
+CLAUDE.md. Write the Norwegian detail text explicitly at the call site.
 
 ### 6. Integration test
 
 Test the endpoint with `WebApplicationFactory`, as in
 `SportForAlle.Tests/Controllers/`. Cover the success path, the blocked path with
 the right status and reason, and the authorisation path (`401` without a token,
-`403` with the wrong role).
+`403` with the wrong role). Use `AuthenticatedWebApplicationFactory` for the
+authenticated cases, and build any prerequisite resources (a guardian before a
+borrower, a category before equipment) with
+`SportForAlle.Tests/TestSupport/ApiTestDataBuilder.cs` rather than repeating
+the request bodies - add a method there if the endpoint introduces a new kind
+of prerequisite.
 
-Testcontainers is not set up yet. When a test needs real database behaviour
-rather than routing, add it and record the choice.
+Testcontainers is not set up yet; tests run against the shared Docker database
+(`docker compose up -d db`), not an isolated one per test. Use random values
+(`Guid.NewGuid()`) for anything that must be unique, since fixed names would
+collide across test runs.
 
 ### 7. Document
 

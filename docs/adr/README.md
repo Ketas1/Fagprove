@@ -50,3 +50,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0014](./0014-revisjonsfelter-pa-alle-entiteter.md) | Revisjonsfelter på alle entiteter | Akseptert |
 | [0015](./0015-proxied-backend-for-frontend.md) | Proxied backend-for-frontend i stedet for direkte kall fra nettleseren | Akseptert |
 | [0016](./0016-shadcn-ui.md) | shadcn/ui som eneste komponentbibliotek i frontend | Akseptert |
+| [0017](./0017-global-exception-handler.md) | Global exception-handler for RFC 7807-feilsvar | Akseptert |

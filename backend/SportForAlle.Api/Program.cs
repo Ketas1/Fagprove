@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using DotNetEnv;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -5,6 +6,8 @@ using Microsoft.EntityFrameworkCore;
 using Npgsql;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
+using SportForAlle.Api.Middleware;
+using SportForAlle.Api.Services;
 
 // The .env file lives at the repository root, not next to this project, so
 // the frontend and backend can share one file - see docs/11-utviklingsmiljo.md.
@@ -22,10 +25,27 @@ if (rootEnvFile is not null)
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddControllers();
+builder.Services
+    .AddControllers(options =>
+        // Keeps action names identical to the C# method name, "Async" suffix
+        // included - without this, ASP.NET Core strips it by convention, so
+        // CreatedAtAction(nameof(GetByIdAsync), ...) fails to resolve a
+        // route ("no route matches the supplied values") because the
+        // registered action name is "GetById", not "GetByIdAsync".
+        options.SuppressAsyncSuffixInActionNames = false)
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddOpenApi();
 
+builder.Services.AddProblemDetails();
+builder.Services.AddExceptionHandler<ProblemDetailsExceptionHandler>();
+
 builder.Services.AddSingleton<IClock, SystemClock>();
+
+builder.Services.AddScoped<EquipmentCategoryService>();
+builder.Services.AddScoped<GuardianService>();
+builder.Services.AddScoped<BorrowerService>();
+builder.Services.AddScoped<EquipmentService>();
+builder.Services.AddScoped<LoanService>();
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -104,6 +124,11 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+
+// Translates service-thrown exceptions into RFC 7807 ProblemDetails, see
+// docs/05-api.md and Middleware/ProblemDetailsExceptionHandler.cs. Placed
+// before authentication/authorization so it also covers anything they throw.
+app.UseExceptionHandler();
 
 app.UseAuthentication();
 app.UseAuthorization();

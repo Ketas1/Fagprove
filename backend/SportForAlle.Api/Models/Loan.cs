@@ -54,7 +54,8 @@ public class Loan : AuditableEntity
     /// ADR-0011, and what business rule 2 (blocking new loans) must use -
     /// it cannot depend on a background job having already run.
     /// </summary>
-    public bool IsOverdueNow(IClock clock) => Status == LoanStatus.Active && clock.UtcNow > DueDate;
+    public bool IsOverdueNow(IClock clock) =>
+        Status == LoanStatus.Overdue || (Status == LoanStatus.Active && clock.UtcNow > DueDate);
 
     /// <summary>
     /// The write-time half of ADR-0011: materialises <see cref="Status"/> to
