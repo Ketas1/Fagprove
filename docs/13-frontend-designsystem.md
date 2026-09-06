@@ -192,6 +192,7 @@ avledede steg) treffer det meste av designet nøyaktig:
 Bruk `flex`/`grid` med `gap`, ikke marger mellom søsken - det er slik hele
 designet allerede er bygget, og det er lettere å vedlikeholde.
 
+## Komponenter
 
 Hver rad viser hva shadcn-komponenten skal bygges eller utvides fra. "Legg
 til" betyr `bunx shadcn@latest add <navn>`.
