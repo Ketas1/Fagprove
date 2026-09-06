@@ -77,7 +77,7 @@ testdata er oppdiktet.
 cd backend && dotnet test
 
 # Frontend
-cd frontend && bun run lint && bun run build
+cd frontend && bun run test && bun run lint && bun run build
 
 # End to end
 cd frontend && bun run test:e2e

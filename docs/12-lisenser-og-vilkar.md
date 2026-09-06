@@ -80,6 +80,7 @@ Tre grunner:
 | tailwind-merge | 3.6.0 | MIT | |
 | lucide-react | 1.40.0 | ISC | |
 | tw-animate-css | 1.4.0 | MIT | |
+| cmdk | 1.1.1 | MIT | |
 | Bun | 1.3.6 | MIT | |
 
 > shadcn er ikke ett bibliotek som installeres og importeres, men en CLI som

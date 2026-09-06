@@ -53,3 +53,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0017](./0017-global-exception-handler.md) | Global exception-handler for RFC 7807-feilsvar | Akseptert |
 | [0018](./0018-scalar-api-testing.md) | Scalar som API-testverktøy i utviklingsmiljø | Akseptert |
 | [0019](./0019-staff-auth0-mapping.md) | Staff↔Auth0-kobling og «reject unless linked» | Akseptert |
+| [0020](./0020-server-lesing-klient-skriving.md) | Server-komponenter leser direkte fra backend, klientkomponenter skriver gjennom proxyen | Akseptert |
