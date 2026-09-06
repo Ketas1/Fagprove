@@ -77,4 +77,21 @@ public class EquipmentCategoryTests
         Assert.Throws<ArgumentException>(() => category.Rename("  ", _clock, staffId: null));
         Assert.Equal("Ski", category.Name);
     }
+
+    [Fact]
+    public void Constructor_defaults_to_a_top_level_category()
+    {
+        EquipmentCategory category = new("Ski", _clock, createdByStaffId: null);
+
+        Assert.Null(category.ParentCategoryId);
+    }
+
+    [Fact]
+    public void Constructor_accepts_a_parent_category()
+    {
+        Guid parentId = Guid.NewGuid();
+        EquipmentCategory category = new("Slalåmski", _clock, createdByStaffId: null, parentId);
+
+        Assert.Equal(parentId, category.ParentCategoryId);
+    }
 }

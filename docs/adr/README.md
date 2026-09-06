@@ -54,3 +54,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0018](./0018-scalar-api-testing.md) | Scalar som API-testverktøy i utviklingsmiljø | Akseptert |
 | [0019](./0019-staff-auth0-mapping.md) | Staff↔Auth0-kobling og «reject unless linked» | Akseptert |
 | [0020](./0020-server-lesing-klient-skriving.md) | Server-komponenter leser direkte fra backend, klientkomponenter skriver gjennom proxyen | Akseptert |
+| [0021](./0021-hierarkiske-utstyrskategorier.md) | Hierarkiske utstyrskategorier, uhåndhevet dybde, ett-siders trevisning | Akseptert |

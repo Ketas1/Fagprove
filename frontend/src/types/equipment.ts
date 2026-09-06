@@ -6,8 +6,20 @@ export type EquipmentCondition = 'New' | 'Good' | 'Worn' | 'Damaged';
 export type EquipmentCategory = {
   id: string;
   name: string;
+  parentCategoryId: string | null;
   createdByStaffId: string | null;
   updatedByStaffId: string | null;
+};
+
+/// Body for POST /api/equipment-categories. Null/omitted parentCategoryId creates a top-level category.
+export type CreateEquipmentCategoryRequest = {
+  name: string;
+  parentCategoryId?: string;
+};
+
+/// Body for PUT /api/equipment-categories/{id}.
+export type RenameEquipmentCategoryRequest = {
+  name: string;
 };
 
 export type Equipment = {

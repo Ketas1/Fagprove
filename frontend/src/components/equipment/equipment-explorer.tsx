@@ -15,30 +15,39 @@ type StatusFilter = 'all' | EquipmentStatus;
 export function EquipmentExplorer({
   equipment,
   categories,
+  selectedCategoryId,
+  selectedCategoryName,
 }: {
   equipment: Equipment[];
   categories: EquipmentCategory[];
+  selectedCategoryId: string | null;
+  selectedCategoryName: string | null;
 }) {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
 
+  const inCategory = useMemo(
+    () => (selectedCategoryId ? equipment.filter((item) => item.categoryId === selectedCategoryId) : equipment),
+    [equipment, selectedCategoryId],
+  );
+
   const counts = useMemo(() => {
     const result: Record<StatusFilter, number> = {
-      all: equipment.length,
+      all: inCategory.length,
       Available: 0,
       OnLoan: 0,
       OutOfService: 0,
       WrittenOff: 0,
     };
-    for (const item of equipment) {
+    for (const item of inCategory) {
       result[item.status] += 1;
     }
     return result;
-  }, [equipment]);
+  }, [inCategory]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return equipment.filter((item) => {
+    return inCategory.filter((item) => {
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       const matchesSearch =
         query.length === 0 ||
@@ -46,10 +55,13 @@ export function EquipmentExplorer({
         item.serialNumber.toLowerCase().includes(query);
       return matchesStatus && matchesSearch;
     });
-  }, [equipment, statusFilter, search]);
+  }, [inCategory, statusFilter, search]);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-1 flex-col gap-4">
+      <div className="text-[12.5px] font-medium text-muted-foreground">
+        {selectedCategoryName ? `Utstyr i «${selectedCategoryName}»` : 'Alt utstyr'}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <div className="relative">
@@ -71,7 +83,7 @@ export function EquipmentExplorer({
             </TabsList>
           </Tabs>
         </div>
-        <NewEquipmentDialog categories={categories} />
+        <NewEquipmentDialog categories={categories} initialCategoryId={selectedCategoryId} />
       </div>
 
       <Table>

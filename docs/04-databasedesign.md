@@ -27,7 +27,7 @@ Se [ADR-0005](./adr/0005-ef-core-code-first.md).
 | `Staff` | Ansatte. `Name` og en valgfri `Auth0UserId` som kobles på når autentisering bygges. |
 | `Guardians` | Foresatte, med navn, e-post og telefon. |
 | `Borrowers` | Barn: navn, fødselsdato, kobling til én foresatt (`GuardianId`), `LateReturnCount`, `IsUnreliable` og `Status` (`Active`/`Banned`). |
-| `EquipmentCategories` | Kategorier for gruppering og rapportering. |
+| `EquipmentCategories` | Kategorier for gruppering og rapportering. Kan nøstes vilkårlig dypt via `ParentCategoryId` (selvrefererende, nullbar) - en kategori kan ha både underkategorier og eget utstyr samtidig. Dybden håndheves ikke i kode; det er en vane, ikke en regel, se ADR-0021. |
 | `Equipment` | Utstyr: navn, serienummer (unikt), kategori, tilstand (`Condition`) og status. |
 | `Loans` | Utlån: start, forfallsdato, retur, status og `DaysLate`. |
 | `ContactAttempts` | Kontaktforsøk mot foresatt om et utlån, med metode og resultat. |
@@ -56,6 +56,7 @@ erDiagram
     BORROWER ||--o{ NOTE : "har"
     BORROWER ||--o{ BAN : "kan være omfattet av"
     EQUIPMENT_CATEGORY ||--o{ EQUIPMENT : "grupperer"
+    EQUIPMENT_CATEGORY ||--o{ EQUIPMENT_CATEGORY : "har underkategori"
     EQUIPMENT ||--o{ LOAN : "lånes ut i"
     LOAN ||--o{ CONTACT_ATTEMPT : "følges opp med"
     STAFF ||--o{ LOAN : "registrerer (CreatedByStaffId)"
@@ -78,6 +79,7 @@ erDiagram
     EQUIPMENT_CATEGORY {
         uuid Id PK
         string Name
+        uuid ParentCategoryId FK
     }
     EQUIPMENT {
         uuid Id PK
@@ -133,6 +135,7 @@ diagrammet for lesbarhet.
 | --- | --- | --- | --- | --- |
 | `Guardian` → `Borrower` | 1 til mange | Ja (`Borrower.GuardianId`) | `Restrict` | Et barn kan ikke eksistere uten foresatt (forretningsregel 1). En foresatt med barn knyttet til seg kan ikke slettes før barna er flyttet eller fjernet. |
 | `EquipmentCategory` → `Equipment` | 1 til mange | Ja (`Equipment.CategoryId`) | `Restrict` | En kategori med utstyr i seg skal ikke kunne forsvinne under utstyret - utstyret må omkategoriseres først. |
+| `EquipmentCategory` → `EquipmentCategory` (`ParentCategoryId`) | 1 til mange, valgfri | Nei (nullbar - `null` er en toppnivå-kategori) | `Restrict` | En kategori med underkategorier kan ikke slettes før de er borte, akkurat som en mappe som ikke er tom. Satt kun ved opprettelse - det finnes ingen "flytt kategori"-operasjon ennå, så en sirkel (en kategori som blir sin egen forfar) er strukturelt umulig. |
 | `Borrower` → `Loan` | 1 til mange | Ja | `Restrict` | Utlånshistorikk er grunnlaget for rapportering til kommunen og må overleve selv om en låntaker slettes. Reell sletting av en låntaker med historikk krever anonymisering, ikke fjerning av raden - se [`09-lover-og-regler.md`](./09-lover-og-regler.md). |
 | `Equipment` → `Loan` | 1 til mange | Ja | `Restrict` | Samme begrunnelse som over: lånehistorikk må bestå selv om utstyret fjernes fra systemet. |
 | `Loan` → `ContactAttempt` | 1 til mange | Ja | `Cascade` | Et kontaktforsøk har ingen mening uten lånet det gjelder. |
@@ -153,6 +156,8 @@ utestengelse samtidig, som en unik, filtrert indeks - se under.
 | `Equipment (SerialNumber)` | Unik | Serienummer identifiserer én fysisk gjenstand. |
 | `Staff (Auth0UserId)` | Unik | Én Auth0-bruker skal ikke kunne kobles til mer enn én ansatt. |
 | `Bans (BorrowerId)` hvor `LiftedAt IS NULL` | Unik, filtrert | Håndhever i databasen, ikke bare i `Borrower.Ban()`, at en låntaker ikke kan ha to aktive utestengelser samtidig. |
+| `EquipmentCategories (Name)` hvor `ParentCategoryId IS NULL` | Unik, filtrert | Navn er unike blant søsken, ikke globalt. Postgres behandler hver `NULL` som forskjellig fra enhver annen i en vanlig sammensatt indeks, så toppnivå-kategorier (som alle har `ParentCategoryId = NULL`) trenger denne egne, filtrerte indeksen for i det hele tatt å bli sammenlignet med hverandre. |
+| `EquipmentCategories (ParentCategoryId, Name)` hvor `ParentCategoryId IS NOT NULL` | Unik, filtrert | Samme regel for underkategorier: unike blant søsken under samme forelder. To forskjellige grener kan gjenbruke samme navn, som to mapper som begge inneholder en fil kalt "Diverse". |
 
 ## Datatyper og konvensjoner
 
@@ -191,6 +196,7 @@ dotnet ef database update \
 | --- | --- | --- |
 | `InitialCreate` | 2026-09-02 | Oppretter `EquipmentCategories` med `Id` (identity) og `Name` (`varchar(100)`, unik). Første migrasjon, laget for å verifisere at EF Core, migrasjoner og Docker-databasen henger sammen. |
 | `AddCoreDomainEntities` | 2026-09-03 | Oppretter `Staff`, `Guardians`, `Borrowers`, `Equipment`, `Loans`, `ContactAttempts`, `Notes` og `Bans`, med relasjonene og indeksene beskrevet over. Endrer `EquipmentCategories.Id` fra `int` (identity) til `Guid`, og legger revisjonsfeltene til på alle tabeller, inkludert `EquipmentCategories`. |
+| `AddEquipmentCategoryHierarchy` | 2026-09-06 | Legger til `ParentCategoryId` (nullbar, selvrefererende `Restrict`-FK) på `EquipmentCategories`. Bytter ut den globale unike indeksen på `Name` med de to filtrerte indeksene beskrevet over. Ingen data gikk tapt - eksisterende kategorier ble toppnivå-kategorier (`ParentCategoryId = NULL`) uten videre. Se ADR-0021. |
 
 ## Testdata
 

@@ -230,6 +230,28 @@ tilnærming.
 
 Bruk aldri emoji som ikon eller markør noe sted i grensesnittet.
 
+## Utstyrskategorier: kategoritre (ikke i det opprinnelige designet)
+
+Kategorihierarkiet (`components/equipment/category-tree.tsx`) ble lagt til
+etter at det opprinnelige designcanvaset var laget, og finnes derfor ikke der
+- se [ADR-0021](./adr/0021-hierarkiske-utstyrskategorier.md) for hvorfor og
+hvilke alternativer som ble vurdert. Mønsteret er bevisst enkelt:
+
+- Ett venstre panel (`CategoryTree`) med et sammenleggbart tre - ingen egen
+  rute, ingen brødsmulesti. Valgt kategori er lokal komponenttilstand
+  (`selectedCategoryId` i `EquipmentWorkspace`).
+- Høyre side er den samme utstyrstabellen som før (`EquipmentExplorer`),
+  bare filtrert på valgt kategori. "Alt utstyr" (ingen kategori valgt) er
+  nøyaktig den gamle, flate visningen.
+- En kategori kan ha både underkategorier og eget utstyr samtidig - treet
+  viser det ene, tabellen det andre, side om side.
+- Ny/gi nytt navn/slett er små ikonknapper per rad i treet, med samme
+  `Dialog`-mønster som resten av appen. Sletting viser backend sin `409`
+  (`CategoryHasSubcategories`/`CategoryHasEquipment`) direkte som feiltekst i
+  dialogen, akkurat som det blokkerte utlånet.
+- Treets dybde er ikke begrenset i grensesnittet heller - det følger av at
+  det ikke er begrenset i domenet (se ADR-0021), ikke en egen frontend-regel.
+
 ## Tilstander som ikke er designet ennå
 
 Disse manglet allerede da designet ble gjennomgått, og er ikke lagt til

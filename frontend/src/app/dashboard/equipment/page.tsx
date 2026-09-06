@@ -1,4 +1,4 @@
-import { EquipmentExplorer } from '@/components/equipment/equipment-explorer';
+import { EquipmentWorkspace } from '@/components/equipment/equipment-workspace';
 import { fetchBackend } from '@/lib/backend';
 import type { Equipment, EquipmentCategory } from '@/types/equipment';
 
@@ -10,5 +10,5 @@ export default async function EquipmentPage() {
     fetchBackend<EquipmentCategory[]>(['equipment-categories']),
   ]);
 
-  return <EquipmentExplorer equipment={equipment} categories={categories} />;
+  return <EquipmentWorkspace equipment={equipment} categories={categories} />;
 }

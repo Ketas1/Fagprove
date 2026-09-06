@@ -21,12 +21,18 @@ import type { ProblemDetails } from '@/types/problem-details';
 
 const CONDITIONS: EquipmentCondition[] = ['New', 'Good', 'Worn', 'Damaged'];
 
-export function NewEquipmentDialog({ categories }: { categories: EquipmentCategory[] }) {
+export function NewEquipmentDialog({
+  categories,
+  initialCategoryId,
+}: {
+  categories: EquipmentCategory[];
+  initialCategoryId?: string | null;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [serialNumber, setSerialNumber] = useState('');
-  const [categoryId, setCategoryId] = useState('');
+  const [categoryId, setCategoryId] = useState(initialCategoryId ?? '');
   const [condition, setCondition] = useState<EquipmentCondition>('New');
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
@@ -34,7 +40,7 @@ export function NewEquipmentDialog({ categories }: { categories: EquipmentCatego
   function reset() {
     setName('');
     setSerialNumber('');
-    setCategoryId('');
+    setCategoryId(initialCategoryId ?? '');
     setCondition('New');
     setProblem(null);
   }
@@ -67,7 +73,7 @@ export function NewEquipmentDialog({ categories }: { categories: EquipmentCatego
       open={open}
       onOpenChange={(nextOpen) => {
         setOpen(nextOpen);
-        if (!nextOpen) reset();
+        reset();
       }}
     >
       <DialogTrigger render={<Button />}>

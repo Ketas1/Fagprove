@@ -3,12 +3,9 @@ using SportForAlle.Api.Models;
 
 namespace SportForAlle.Api.Dtos.EquipmentCategories;
 
-public record CreateEquipmentCategoryRequest
+public record RenameEquipmentCategoryRequest
 {
     [Required(ErrorMessage = "Navn er påkrevd.")]
     [MaxLength(EquipmentCategory.NameMaxLength, ErrorMessage = "Navn er for langt.")]
     public required string Name { get; init; }
-
-    /// <summary>Null creates a top-level category.</summary>
-    public Guid? ParentCategoryId { get; init; }
 }
