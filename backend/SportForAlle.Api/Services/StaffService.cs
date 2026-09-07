@@ -57,4 +57,23 @@ public class StaffService(AppDbContext dbContext, IClock clock, CurrentUserConte
 
         return StaffMapper.ToResponse(staff);
     }
+
+    /// <summary>
+    /// The caller's own Staff profile, found by their Auth0 subject rather
+    /// than an id in the route - there is nothing to link to yet if this
+    /// returns 404, which is the normal state for a user who has not
+    /// completed the bootstrap flow.
+    /// </summary>
+    public async Task<StaffResponse> GetMeAsync(CancellationToken cancellationToken)
+    {
+        string subject = currentUser.Auth0Subject
+            ?? throw new InvalidOperationException(
+                $"{nameof(CurrentUserContext)}.{nameof(CurrentUserContext.Auth0Subject)} was not populated " +
+                "for an authenticated request.");
+
+        Staff staff = await dbContext.Staff.FirstOrDefaultAsync(s => s.Auth0UserId == subject, cancellationToken)
+            ?? throw new NotFoundException("Kontoen er ikke koblet til en ansattprofil ennå.");
+
+        return StaffMapper.ToResponse(staff);
+    }
 }

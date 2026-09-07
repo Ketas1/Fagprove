@@ -117,5 +117,46 @@ public class StaffEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Equal("Auth0AccountAlreadyLinked", problem?.Reason);
     }
 
+    [Fact]
+    public async Task GetMe_without_a_token_returns_401()
+    {
+        HttpClient client = factory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/api/staff/me");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMe_returns_404_for_an_authenticated_but_unlinked_user()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory =
+            new(seedLinkedStaff: false, subject: $"auth0|{Guid.NewGuid()}");
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage response = await client.GetAsync("/api/staff/me");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task GetMe_returns_the_callers_own_profile_once_linked()
+    {
+        string subject = $"auth0|{Guid.NewGuid()}";
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory =
+            new(seedLinkedStaff: false, subject: subject);
+        HttpClient client = authenticatedFactory.CreateClient();
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/staff", new { Name = "Kari Nordmann" });
+        StaffPayload created = (await createResponse.Content.ReadFromJsonAsync<StaffPayload>())!;
+        await client.PostAsync($"/api/staff/{created.Id}/link-me", null);
+
+        HttpResponseMessage response = await client.GetAsync("/api/staff/me");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        StaffPayload? me = await response.Content.ReadFromJsonAsync<StaffPayload>();
+        Assert.Equal(created.Id, me?.Id);
+        Assert.Equal(subject, me?.Auth0UserId);
+    }
+
     private sealed record StaffPayload(Guid Id, string Name, string? Auth0UserId);
 }

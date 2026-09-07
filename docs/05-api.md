@@ -89,7 +89,7 @@ innlogget; det finnes ingen rollesjekk.
 
 Bygget 2026-09-04 sammen med koblingen mellom `Staff` og Auth0, se
 [ADR-0019](./adr/0019-staff-auth0-mapping.md) og `06-autentisering.md`. Alle
-tre er `[AllowUnlinkedStaff]` - de finnes nettopp for å la en ukoblet bruker
+fire er `[AllowUnlinkedStaff]` - de finnes nettopp for å la en ukoblet bruker
 bli koblet.
 
 | Metode | Rute | Rolle | Beskrivelse |
@@ -97,6 +97,7 @@ bli koblet.
 | `GET` | `/api/staff` | Enhver innlogget bruker | Liste, slik en ukoblet bruker kan se om profilen sin allerede finnes |
 | `POST` | `/api/staff` | Enhver innlogget bruker | Registrer en ny profil (kun navn) |
 | `POST` | `/api/staff/{id}/link-me` | Enhver innlogget bruker | Kobler den innloggede brukerens eget Auth0-`sub` til profilen. Ingen forespørselskropp. `404` hvis profilen ikke finnes, `409 StaffAlreadyLinked` hvis den allerede er koblet, `409 Auth0AccountAlreadyLinked` hvis denne kontoen allerede er koblet et annet sted |
+| `GET` | `/api/staff/me` | Enhver innlogget bruker | Den innloggede brukerens egen profil, funnet via Auth0-`sub` (ikke en id i ruten). `404` hvis kontoen ikke er koblet ennå - det er den vanlige tilstanden for noen som ikke har fullført oppstartsflyten. Bygget 2026-09-07 slik at frontend kan spørre "er dette meg?" uten å hente hele listen, som eksponerer alle profilers `auth0UserId` |
 
 ### Utstyrskategorier
 

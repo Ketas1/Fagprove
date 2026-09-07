@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
 import { NotBuiltYetBadge } from '@/components/not-built-yet';
 import { calculateAge } from '@/lib/age';
 import type { Borrower } from '@/types/borrower';
@@ -37,6 +37,16 @@ export function NewLoanDialog({ borrowers, equipment }: { borrowers: Borrower[];
 
   const borrowableBorrowers = borrowers.filter((borrower) => borrower.status !== 'Banned');
   const availableEquipment = equipment.filter((item) => item.status === 'Available');
+
+  const borrowerItems = borrowableBorrowers.map((borrower) => ({
+    id: borrower.id,
+    label: `${borrower.name} · ${calculateAge(borrower.dateOfBirth, new Date())} år`,
+  }));
+  const equipmentItems = availableEquipment.map((item) => ({
+    id: item.id,
+    label: `${item.name} · #${item.serialNumber}`,
+    group: item.categoryName,
+  }));
 
   function reset() {
     setBorrowerId('');
@@ -104,36 +114,28 @@ export function NewLoanDialog({ borrowers, equipment }: { borrowers: Borrower[];
             <label className="text-[12.5px] font-medium text-muted-foreground">
               Låntaker <span className="text-status-danger-fg">*</span>
             </label>
-            <Select value={borrowerId} onValueChange={(value) => setBorrowerId(value ?? '')}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Velg låntaker" />
-              </SelectTrigger>
-              <SelectContent>
-                {borrowableBorrowers.map((borrower) => (
-                  <SelectItem key={borrower.id} value={borrower.id}>
-                    {borrower.name} · {calculateAge(borrower.dateOfBirth, new Date())} år
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={borrowerItems}
+              value={borrowerId || null}
+              onChange={(value) => setBorrowerId(value ?? '')}
+              placeholder="Velg låntaker…"
+              searchPlaceholder="Søk låntaker…"
+              emptyText="Ingen låntakere funnet."
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-[12.5px] font-medium text-muted-foreground">
               Utstyr <span className="text-status-danger-fg">*</span>
             </label>
-            <Select value={equipmentId} onValueChange={(value) => setEquipmentId(value ?? '')}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Velg ledig utstyr" />
-              </SelectTrigger>
-              <SelectContent>
-                {availableEquipment.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name} · #{item.serialNumber}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Combobox
+              items={equipmentItems}
+              value={equipmentId || null}
+              onChange={(value) => setEquipmentId(value ?? '')}
+              placeholder="Velg ledig utstyr…"
+              searchPlaceholder="Søk utstyr…"
+              emptyText="Ingen ledig utstyr funnet."
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">

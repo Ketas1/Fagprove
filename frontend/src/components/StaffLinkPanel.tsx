@@ -5,14 +5,23 @@ import type { Staff } from '@/types/staff';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
-type State = { status: 'loading' } | { status: 'loaded'; staff: Staff[] } | { status: 'error' };
+type State =
+  | { status: 'loading' }
+  | { status: 'linked'; me: Staff }
+  | { status: 'unlinked'; staff: Staff[] }
+  | { status: 'error' };
 
 /**
  * Lets the logged-in user create a Staff profile and link their own Auth0
  * account to one, through the same-origin proxy - see
  * docs/adr/0019-staff-auth0-mapping.md. Every /api/* endpoint requires a
- * linked Staff profile except this one's two backend endpoints, which exist
- * for exactly this bootstrapping step.
+ * linked Staff profile except this one's endpoints, which exist for exactly
+ * this bootstrapping step.
+ *
+ * Checks `/api/staff/me` first: once linked, there is nothing left to do
+ * here, so the full bootstrap list (every staff member's name and link
+ * status) only renders for someone who genuinely still needs it - see
+ * `GET /api/staff/me` in docs/05-api.md.
  */
 export function StaffLinkPanel() {
   const [state, setState] = useState<State>({ status: 'loading' });
@@ -28,10 +37,28 @@ export function StaffLinkPanel() {
   useEffect(() => {
     const controller = new AbortController();
 
-    fetch('/api/staff', { cache: 'no-store', signal: controller.signal })
-      .then((response) => (response.ok ? (response.json() as Promise<Staff[]>) : null))
-      .then((result) => {
-        setState(result ? { status: 'loaded', staff: result } : { status: 'error' });
+    fetch('/api/staff/me', { cache: 'no-store', signal: controller.signal })
+      .then(async (meResponse) => {
+        if (meResponse.ok) {
+          const me = (await meResponse.json()) as Staff;
+          setState({ status: 'linked', me });
+          return;
+        }
+
+        if (meResponse.status !== 404) {
+          setState({ status: 'error' });
+          return;
+        }
+
+        const listResponse = await fetch('/api/staff', { cache: 'no-store', signal: controller.signal });
+
+        if (!listResponse.ok) {
+          setState({ status: 'error' });
+          return;
+        }
+
+        const staff = (await listResponse.json()) as Staff[];
+        setState({ status: 'unlinked', staff });
       })
       .catch((error: unknown) => {
         if (error instanceof DOMException && error.name === 'AbortError') {
@@ -91,6 +118,14 @@ export function StaffLinkPanel() {
 
   if (state.status === 'error') {
     return <p className="text-destructive text-sm">Får ikke kontakt med API-et.</p>;
+  }
+
+  if (state.status === 'linked') {
+    return (
+      <p className="text-sm">
+        Du er koblet som <span className="font-medium">{state.me.name}</span>.
+      </p>
+    );
   }
 
   return (

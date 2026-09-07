@@ -13,6 +13,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { equipmentConditionLabel } from '@/lib/status-labels';
@@ -105,18 +106,14 @@ export function NewEquipmentDialog({
               <label className="text-[12.5px] font-medium text-muted-foreground">
                 Kategori <span className="text-status-danger-fg">*</span>
               </label>
-              <Select value={categoryId} onValueChange={(value) => setCategoryId(value ?? '')}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Velg kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={categories.map((category) => ({ id: category.id, label: category.name }))}
+                value={categoryId || null}
+                onChange={(value) => setCategoryId(value ?? '')}
+                placeholder="Velg kategori…"
+                searchPlaceholder="Søk kategori…"
+                emptyText="Ingen kategorier funnet."
+              />
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="text-[12.5px] font-medium text-muted-foreground">

@@ -9,15 +9,40 @@ describe('StaffLinkPanel', () => {
     jest.restoreAllMocks();
   });
 
-  function mockFetchSequence(...responses: Array<{ ok: boolean; json: () => Promise<unknown> }>) {
+  function mockFetchSequence(...responses: Array<{ ok: boolean; status?: number; json: () => Promise<unknown> }>) {
     const fetchSpy = jest.fn();
     responses.forEach((response) => fetchSpy.mockResolvedValueOnce(response));
     global.fetch = fetchSpy as unknown as typeof fetch;
     return fetchSpy;
   }
 
-  it('shows the error state when the list cannot be loaded', async () => {
-    mockFetchSequence({ ok: false, json: () => Promise.resolve(null) });
+  it('shows a linked confirmation when /api/staff/me succeeds', async () => {
+    mockFetchSequence({
+      ok: true,
+      json: () => Promise.resolve({ id: 'a', name: 'Kari Nordmann', auth0UserId: 'auth0|abc123' }),
+    });
+
+    render(<StaffLinkPanel />);
+
+    await waitFor(() => expect(screen.getByText('Kari Nordmann')).toBeInTheDocument());
+    expect(screen.getByText(/Du er koblet som/)).toBeInTheDocument();
+  });
+
+  it('shows the error state when /api/staff/me fails with something other than 404', async () => {
+    mockFetchSequence({ ok: false, status: 500, json: () => Promise.resolve(null) });
+
+    render(<StaffLinkPanel />);
+
+    await waitFor(() =>
+      expect(screen.getByText('Får ikke kontakt med API-et.')).toBeInTheDocument(),
+    );
+  });
+
+  it('shows the error state when the bootstrap list cannot be loaded after a 404 from /me', async () => {
+    mockFetchSequence(
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
+      { ok: false, json: () => Promise.resolve(null) },
+    );
 
     render(<StaffLinkPanel />);
 
@@ -27,7 +52,10 @@ describe('StaffLinkPanel', () => {
   });
 
   it('shows a message when there are no staff profiles yet', async () => {
-    mockFetchSequence({ ok: true, json: () => Promise.resolve([]) });
+    mockFetchSequence(
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
+      { ok: true, json: () => Promise.resolve([]) },
+    );
 
     render(<StaffLinkPanel />);
 
@@ -37,14 +65,17 @@ describe('StaffLinkPanel', () => {
   });
 
   it('shows an unlinked profile with a link button, and a linked one without', async () => {
-    mockFetchSequence({
-      ok: true,
-      json: () =>
-        Promise.resolve([
-          { id: 'a', name: 'Kari Nordmann', auth0UserId: null },
-          { id: 'b', name: 'Ola Nordmann', auth0UserId: 'auth0|abc123' },
-        ]),
-    });
+    mockFetchSequence(
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
+      {
+        ok: true,
+        json: () =>
+          Promise.resolve([
+            { id: 'a', name: 'Kari Nordmann', auth0UserId: null },
+            { id: 'b', name: 'Ola Nordmann', auth0UserId: 'auth0|abc123' },
+          ]),
+      },
+    );
 
     render(<StaffLinkPanel />);
 
@@ -56,8 +87,10 @@ describe('StaffLinkPanel', () => {
 
   it('creates a profile and refreshes the list', async () => {
     const fetchSpy = mockFetchSequence(
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
       { ok: true, json: () => Promise.resolve([]) },
       { ok: true, json: () => Promise.resolve({ id: 'a', name: 'Kari Nordmann', auth0UserId: null }) },
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
       {
         ok: true,
         json: () => Promise.resolve([{ id: 'a', name: 'Kari Nordmann', auth0UserId: null }]),
@@ -74,7 +107,7 @@ describe('StaffLinkPanel', () => {
     await waitFor(() => expect(screen.getByText('Kari Nordmann')).toBeInTheDocument());
 
     expect(fetchSpy).toHaveBeenNthCalledWith(
-      2,
+      3,
       '/api/staff',
       expect.objectContaining({
         method: 'POST',
@@ -85,6 +118,7 @@ describe('StaffLinkPanel', () => {
 
   it('shows the Norwegian conflict message when the account is already linked elsewhere', async () => {
     mockFetchSequence(
+      { ok: false, status: 404, json: () => Promise.resolve(null) },
       {
         ok: true,
         json: () =>
