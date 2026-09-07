@@ -5,5 +5,6 @@ public record GuardianResponse(
     string Name,
     string Email,
     string Phone,
+    DateTimeOffset? IdentityVerifiedAt,
     Guid? CreatedByStaffId,
     Guid? UpdatedByStaffId);

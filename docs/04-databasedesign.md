@@ -197,6 +197,7 @@ dotnet ef database update \
 | `InitialCreate` | 2026-09-02 | Oppretter `EquipmentCategories` med `Id` (identity) og `Name` (`varchar(100)`, unik). Første migrasjon, laget for å verifisere at EF Core, migrasjoner og Docker-databasen henger sammen. |
 | `AddCoreDomainEntities` | 2026-09-03 | Oppretter `Staff`, `Guardians`, `Borrowers`, `Equipment`, `Loans`, `ContactAttempts`, `Notes` og `Bans`, med relasjonene og indeksene beskrevet over. Endrer `EquipmentCategories.Id` fra `int` (identity) til `Guid`, og legger revisjonsfeltene til på alle tabeller, inkludert `EquipmentCategories`. |
 | `AddEquipmentCategoryHierarchy` | 2026-09-06 | Legger til `ParentCategoryId` (nullbar, selvrefererende `Restrict`-FK) på `EquipmentCategories`. Bytter ut den globale unike indeksen på `Name` med de to filtrerte indeksene beskrevet over. Ingen data gikk tapt - eksisterende kategorier ble toppnivå-kategorier (`ParentCategoryId = NULL`) uten videre. Se ADR-0021. |
+| `AddGuardianIdentityVerification` | 2026-09-07 | Legger til `IdentityVerifiedAt` (nullbar `timestamp with time zone`) på `Guardians` - registrerer at ansatt har bekreftet foresattes ID i butikken, se `09-lover-og-regler.md`. Ett kolonnetillegg, ingen datamigrering nødvendig. |
 
 ## Testdata
 

@@ -28,5 +28,8 @@ export type CreateBorrowerRequest = {
     name: string;
     email: string;
     phone: string;
+    /// Optional - see docs/09-lover-og-regler.md. Omitting or sending false
+    /// does not block registration.
+    identityVerified?: boolean;
   };
 };

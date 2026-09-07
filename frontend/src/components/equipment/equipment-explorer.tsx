@@ -1,13 +1,16 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { Search } from 'lucide-react';
+import { RowActionsMenu } from '@/components/row-actions-menu';
 import { StatusBadge } from '@/components/status-badge';
-import { Input } from '@/components/ui/input';
+import { SearchInput } from '@/components/ui/search-input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EditEquipmentDialog } from '@/components/equipment/edit-equipment-dialog';
 import { NewEquipmentDialog } from '@/components/equipment/new-equipment-dialog';
 import { equipmentConditionLabel, equipmentStatusInfo } from '@/lib/status-labels';
+import { normalizeSearchQuery } from '@/lib/search';
 import type { Equipment, EquipmentCategory, EquipmentStatus } from '@/types/equipment';
 
 type StatusFilter = 'all' | EquipmentStatus;
@@ -23,8 +26,10 @@ export function EquipmentExplorer({
   selectedCategoryId: string | null;
   selectedCategoryName: string | null;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
 
   const inCategory = useMemo(
     () => (selectedCategoryId ? equipment.filter((item) => item.categoryId === selectedCategoryId) : equipment),
@@ -46,7 +51,7 @@ export function EquipmentExplorer({
   }, [inCategory]);
 
   const filtered = useMemo(() => {
-    const query = search.trim().toLowerCase();
+    const query = normalizeSearchQuery(search);
     return inCategory.filter((item) => {
       const matchesStatus = statusFilter === 'all' || item.status === statusFilter;
       const matchesSearch =
@@ -64,15 +69,7 @@ export function EquipmentExplorer({
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
-          <div className="relative">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Søk utstyr eller serienummer…"
-              className="w-64 pl-8"
-            />
-          </div>
+          <SearchInput value={search} onChange={setSearch} placeholder="Søk utstyr eller serienummer…" />
           <Tabs value={statusFilter} onValueChange={(value) => setStatusFilter(value as StatusFilter)}>
             <TabsList>
               <TabsTrigger value="all">Alle ({counts.all})</TabsTrigger>
@@ -86,41 +83,65 @@ export function EquipmentExplorer({
         <NewEquipmentDialog categories={categories} initialCategoryId={selectedCategoryId} />
       </div>
 
-      <Table>
+      <Table className="table-fixed">
         <TableHeader>
           <TableRow>
-            <TableHead>Navn</TableHead>
-            <TableHead>Kategori</TableHead>
-            <TableHead>Serienummer</TableHead>
-            <TableHead>Tilstand</TableHead>
-            <TableHead>Status</TableHead>
+            <TableHead className="w-[24%]">Navn</TableHead>
+            <TableHead className="w-[18%]">Kategori</TableHead>
+            <TableHead className="w-[18%]">Serienummer</TableHead>
+            <TableHead className="w-[15%]">Tilstand</TableHead>
+            <TableHead className="w-[15%]">Status</TableHead>
+            <TableHead className="w-[10%]">
+              <span className="sr-only">Handlinger</span>
+            </TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {filtered.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
+              <TableCell colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
                 Ingen utstyr matcher søket.
               </TableCell>
             </TableRow>
           )}
           {filtered.map((item) => {
             const { label, tone } = equipmentStatusInfo(item.status);
+            const detailHref = `/dashboard/equipment/${item.id}`;
 
             return (
-              <TableRow key={item.id}>
-                <TableCell className="font-medium">{item.name}</TableCell>
-                <TableCell>{item.categoryName}</TableCell>
-                <TableCell className="text-muted-foreground">#{item.serialNumber}</TableCell>
+              <TableRow
+                key={item.id}
+                onClick={() => router.push(detailHref)}
+                className="cursor-pointer hover:bg-muted/40"
+              >
+                <TableCell className="max-w-0 truncate font-medium">{item.name}</TableCell>
+                <TableCell className="max-w-0 truncate">{item.categoryName}</TableCell>
+                <TableCell className="max-w-0 truncate text-muted-foreground">#{item.serialNumber}</TableCell>
                 <TableCell>{equipmentConditionLabel(item.condition)}</TableCell>
                 <TableCell>
                   <StatusBadge tone={tone}>{label}</StatusBadge>
+                </TableCell>
+                <TableCell onClick={(event) => event.stopPropagation()}>
+                  <RowActionsMenu
+                    openHref={detailHref}
+                    onEdit={() => setEditingEquipment(item)}
+                    label={`Handlinger for ${item.name}`}
+                  />
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
+
+      {editingEquipment && (
+        <EditEquipmentDialog
+          equipment={editingEquipment}
+          categories={categories}
+          open
+          onOpenChange={(open) => !open && setEditingEquipment(null)}
+        />
+      )}
     </div>
   );
 }

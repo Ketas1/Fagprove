@@ -62,7 +62,15 @@ function SelectContent({
   sideOffset = 4,
   align = "center",
   alignOffset = 0,
-  alignItemWithTrigger = true,
+  // Base UI defaults to true ("item-aligned" in Radix terms): the popup
+  // anchors to the currently *selected item's* position, not consistently
+  // below the trigger - it can open overlapping or above the trigger
+  // depending on which item is selected. That reads as "the dropdown opens
+  // in the wrong place" to anyone expecting standard combobox behaviour.
+  // False ("popper" positioning) always opens below the trigger via the
+  // floating positioner (side/sideOffset/align below), which is what every
+  // caller in this app actually expects. See docs/13-frontend-designsystem.md.
+  alignItemWithTrigger = false,
   ...props
 }: SelectPrimitive.Popup.Props &
   Pick<

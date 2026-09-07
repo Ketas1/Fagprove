@@ -6,10 +6,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi;
 using Npgsql;
 using Scalar.AspNetCore;
+using SportForAlle.Api.Configuration;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
 using SportForAlle.Api.Middleware;
 using SportForAlle.Api.Services;
+using SportForAlle.Api.Services.BackgroundJobs;
 
 // The .env file lives at the repository root, not next to this project, so
 // the frontend and backend can share one file - see docs/11-utviklingsmiljo.md.
@@ -76,6 +78,10 @@ builder.Services.AddScoped<GuardianService>();
 builder.Services.AddScoped<BorrowerService>();
 builder.Services.AddScoped<EquipmentService>();
 builder.Services.AddScoped<LoanService>();
+builder.Services.AddScoped<ReportService>();
+
+builder.Services.Configure<OverdueCheckOptions>(builder.Configuration.GetSection(OverdueCheckOptions.SectionName));
+builder.Services.AddHostedService<OverdueLoanBackgroundService>();
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 

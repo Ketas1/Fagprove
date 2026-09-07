@@ -46,6 +46,12 @@ erDiagram
 | `IsUnreliable` | boolsk | Markering av at låntakeren har levert for sent tidligere. |
 | `GuardianId` | fremmednøkkel | Påkrevd. Et barn uten foresatt kan ikke låne. |
 
+**`Guardian`**
+
+| Felt | Type | Merknad |
+| --- | --- | --- |
+| `IdentityVerifiedAt` | tidspunkt, valgfri | Satt når ansatt har bekreftet foresattes ID (navn og fødselsdato) fysisk i butikken ved registrering. Tom betyr ikke bekreftet ennå - **valgfritt, blokkerer ikke registrering**. Prosjektets alternativ til å lagre fødselsnummer, se `09-lover-og-regler.md`. |
+
 **`Loan`**
 
 | Felt | Type | Merknad |

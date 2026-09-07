@@ -16,14 +16,13 @@ namespace SportForAlle.Api.Models;
 ///
 /// <see cref="CreatedByStaffId"/> and <see cref="UpdatedByStaffId"/> are
 /// nullable because they cannot be guaranteed for every mutation in the
-/// system, not because nothing populates them - the core CRUD services
-/// (Borrower, Guardian, Equipment, EquipmentCategory, Loan) resolve the
+/// system, not because nothing populates them - every service resolves the
 /// calling Staff member from the bearer token via
-/// <c>Helpers/CurrentUserContext.cs</c> and pass it into <see cref="Touch"/>
-/// and into each constructor, see docs/adr/0019-staff-auth0-mapping.md.
-/// Whatever hasn't been built yet (Note, Ban, ContactAttempt) still passes
-/// null until it is. The columns were added ahead of that stage so it did
-/// not need its own migration.
+/// <c>Helpers/CurrentUserContext.cs</c> and passes it into <see cref="Touch"/>
+/// and into each constructor, see docs/adr/0019-staff-auth0-mapping.md. The
+/// one exception is <see cref="Loan.RefreshOverdueStatus"/>, which runs from
+/// a background job with no request or staff member behind it and always
+/// passes null.
 ///
 /// There is deliberately no <c>DeletedAt</c>/<c>DeletedByStaffId</c> here.
 /// Deletion of personal data (borrowers, guardians) needs an anonymisation

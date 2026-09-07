@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { AlertTriangle, Check, Info, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Combobox } from '@/components/ui/combobox';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Dialog,
   DialogContent,
@@ -14,29 +17,35 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import type { Guardian } from '@/types/guardian';
 import type { ProblemDetails } from '@/types/problem-details';
 
-function todayIsoDate(): string {
-  return new Date().toISOString().slice(0, 10);
-}
+type GuardianMode = 'new' | 'existing';
 
-export function RegisterChildDialog() {
+export function RegisterChildDialog({ guardians }: { guardians: Guardian[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [childName, setChildName] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
+  const [guardianMode, setGuardianMode] = useState<GuardianMode>('new');
+  const [existingGuardianId, setExistingGuardianId] = useState<string | null>(null);
   const [guardianName, setGuardianName] = useState('');
   const [guardianEmail, setGuardianEmail] = useState('');
   const [guardianPhone, setGuardianPhone] = useState('');
+  const [identityVerified, setIdentityVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
 
   function reset() {
     setChildName('');
     setDateOfBirth('');
+    setGuardianMode('new');
+    setExistingGuardianId(null);
     setGuardianName('');
     setGuardianEmail('');
     setGuardianPhone('');
+    setIdentityVerified(false);
     setProblem(null);
   }
 
@@ -44,21 +53,31 @@ export function RegisterChildDialog() {
     setSubmitting(true);
     setProblem(null);
 
+    const body =
+      guardianMode === 'existing'
+        ? { name: childName, dateOfBirth, guardianId: existingGuardianId }
+        : {
+            name: childName,
+            dateOfBirth,
+            newGuardian: {
+              name: guardianName,
+              email: guardianEmail,
+              phone: guardianPhone,
+              identityVerified,
+            },
+          };
+
     const response = await fetch('/api/borrowers', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        name: childName,
-        dateOfBirth,
-        newGuardian: { name: guardianName, email: guardianEmail, phone: guardianPhone },
-      }),
+      body: JSON.stringify(body),
     });
 
     setSubmitting(false);
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as ProblemDetails | null;
-      setProblem(body ?? { detail: 'Barnet kunne ikke registreres.' });
+      const responseBody = (await response.json().catch(() => null)) as ProblemDetails | null;
+      setProblem(responseBody ?? { detail: 'Barnet kunne ikke registreres.' });
       return;
     }
 
@@ -67,7 +86,14 @@ export function RegisterChildDialog() {
     router.refresh();
   }
 
-  const canSubmit = childName && dateOfBirth && guardianName && guardianEmail && guardianPhone;
+  const guardianItems = guardians.map((guardian) => ({ id: guardian.id, label: `${guardian.name} · ${guardian.email}` }));
+
+  const canSubmit =
+    Boolean(childName) &&
+    Boolean(dateOfBirth) &&
+    (guardianMode === 'existing'
+      ? Boolean(existingGuardianId)
+      : Boolean(guardianName && guardianEmail && guardianPhone));
 
   return (
     <Dialog
@@ -108,43 +134,67 @@ export function RegisterChildDialog() {
               <label className="text-[12.5px] font-medium text-muted-foreground">
                 Fødselsdato <span className="text-status-danger-fg">*</span>
               </label>
-              <input
-                type="date"
-                value={dateOfBirth}
-                max={todayIsoDate()}
-                onChange={(event) => setDateOfBirth(event.target.value)}
-                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              />
+              <DatePicker value={dateOfBirth} onChange={setDateOfBirth} toYear={new Date().getFullYear()} />
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
             Foresatt <span className="h-px flex-1 bg-border" />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12.5px] font-medium text-muted-foreground">
-              Navn <span className="text-status-danger-fg">*</span>
-            </label>
-            <Input value={guardianName} onChange={(event) => setGuardianName(event.target.value)} />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
+
+          <Tabs value={guardianMode} onValueChange={(value) => setGuardianMode(value as GuardianMode)}>
+            <TabsList>
+              <TabsTrigger value="new">Ny foresatt</TabsTrigger>
+              <TabsTrigger value="existing">Eksisterende foresatt</TabsTrigger>
+            </TabsList>
+          </Tabs>
+
+          {guardianMode === 'existing' ? (
             <div className="flex flex-col gap-1.5">
               <label className="text-[12.5px] font-medium text-muted-foreground">
-                Telefon <span className="text-status-danger-fg">*</span>
+                Foresatt <span className="text-status-danger-fg">*</span>
               </label>
-              <Input value={guardianPhone} onChange={(event) => setGuardianPhone(event.target.value)} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[12.5px] font-medium text-muted-foreground">
-                E-post <span className="text-status-danger-fg">*</span>
-              </label>
-              <Input
-                type="email"
-                value={guardianEmail}
-                onChange={(event) => setGuardianEmail(event.target.value)}
+              <Combobox
+                items={guardianItems}
+                value={existingGuardianId}
+                onChange={setExistingGuardianId}
+                placeholder="Velg foresatt…"
+                searchPlaceholder="Søk foresatt…"
+                emptyText="Ingen foresatte funnet."
               />
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12.5px] font-medium text-muted-foreground">
+                  Navn <span className="text-status-danger-fg">*</span>
+                </label>
+                <Input value={guardianName} onChange={(event) => setGuardianName(event.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12.5px] font-medium text-muted-foreground">
+                    Telefon <span className="text-status-danger-fg">*</span>
+                  </label>
+                  <Input value={guardianPhone} onChange={(event) => setGuardianPhone(event.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[12.5px] font-medium text-muted-foreground">
+                    E-post <span className="text-status-danger-fg">*</span>
+                  </label>
+                  <Input
+                    type="email"
+                    value={guardianEmail}
+                    onChange={(event) => setGuardianEmail(event.target.value)}
+                  />
+                </div>
+              </div>
+              <label className="flex items-start gap-2 text-[12.5px] text-muted-foreground">
+                <Checkbox checked={identityVerified} onCheckedChange={setIdentityVerified} className="mt-0.5" />
+                Identitet bekreftet (ID vist i butikken) - valgfritt, brukes i stedet for å lagre fødselsnummer
+              </label>
+            </>
+          )}
 
           <div className="flex gap-2 rounded-lg bg-muted/60 p-2.5 text-xs text-muted-foreground">
             <Info className="mt-0.5 size-3.5 shrink-0" />

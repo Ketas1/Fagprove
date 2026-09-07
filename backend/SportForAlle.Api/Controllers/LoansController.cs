@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using SportForAlle.Api.Dtos.ContactAttempts;
 using SportForAlle.Api.Dtos.Loans;
 using SportForAlle.Api.Models;
 using SportForAlle.Api.Services;
@@ -30,4 +31,18 @@ public class LoansController(LoanService service) : ControllerBase
     public async Task<ActionResult<LoanResponse>> ReturnAsync(
         Guid id, ReturnLoanRequest request, CancellationToken cancellationToken) =>
         Ok(await service.ReturnAsync(id, request, cancellationToken));
+
+    [HttpPost("{id:guid}/mark-lost")]
+    public async Task<ActionResult<LoanResponse>> MarkLostAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.MarkLostAsync(id, cancellationToken));
+
+    [HttpPost("{id:guid}/contact-attempts")]
+    public async Task<ActionResult<ContactAttemptResponse>> LogContactAttemptAsync(
+        Guid id, LogContactAttemptRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.LogContactAttemptAsync(id, request, cancellationToken));
+
+    [HttpGet("{id:guid}/contact-attempts")]
+    public async Task<ActionResult<IReadOnlyList<ContactAttemptResponse>>> GetContactAttemptsAsync(
+        Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.GetContactAttemptsAsync(id, cancellationToken));
 }

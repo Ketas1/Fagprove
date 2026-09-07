@@ -206,15 +206,51 @@ til" betyr `bunx shadcn@latest add <navn>`.
 | Statusmerkelapp | `StatusBadge` (`frontend/src/components/status-badge.tsx`) på `Badge` | Norsk tekst + tone slås opp i `frontend/src/lib/status-labels.ts`, ett sted for alle sider |
 | Primærknapp / sekundærknapp | `Button` (finnes) | `variant="default"` for primær (bruker `--primary` etter fiksen over), `variant="outline"` for sekundær. **Husk:** når en `Button` rendres som `<a>` (innlogging, "Se alle"-lenker), sett `nativeButton={false}` eksplisitt - se den kjente fallgruven i [ADR-0016](./adr/0016-shadcn-ui.md) |
 | Filterfaner / visningsbytte (Tabell/Kanban) | `Tabs` (lagt til) | Den lyse pillen med hvit aktiv-bakgrunn i designet er standard `TabsList`/`TabsTrigger`-utseende |
-| Søkefelt | `Input` (finnes) med søkeikon | Filtrerer i minnet på allerede hentet data, ikke et nytt API-kall per tastetrykk |
+| Søkefelt | `SearchInput` (`frontend/src/components/ui/search-input.tsx`), på `InputGroup` | Filtrerer i minnet på allerede hentet data, ikke et nytt API-kall per tastetrykk. Har en "x"-knapp som bare vises når feltet ikke er tomt. Selve matchingen normaliserer søketeksten via `lib/search.ts` (`normalizeSearchQuery`), som blant annet fjerner en innledende `#` slik at et kopiert id/serienummer kan søkes opp med eller uten `#`-tegnet |
 | Nedtrekksfelt (kategori, tilstand, rolle) | `Select` (lagt til) | - |
 | Fritekstfelt (kontaktforsøk-resultat) | `Textarea` (lagt til) | Lagt til for fremtidig bruk - feltet vises ikke noe sted ennå siden kontaktforsøk mangler et endepunkt |
-| Låntaker-/utstyrsvelger i skjema | **`Select`, bevisst forenklet** - ikke `Command`+`Popover` | Designet viser en søkbar kombinasjonsboks; "Nytt utlån" bruker en enkel nedtrekksliste i stedet (`command`/`popover` er lagt til i `components/ui/` for senere, men ikke brukt) - grei erstatning for en håndfull låntakere/utstyr, bør bli en ekte søkefelt-kombinasjon når listene blir lange |
+| Låntaker-/utstyrsvelger i skjema | `Combobox` (`frontend/src/components/ui/combobox.tsx`), på `Command`+`Popover` | Bygget 2026-09-07 som den ekte søkefelt-kombinasjonen designet viser - søkefelt øverst i lista, og seksjonsoverskrift per gruppe (`group`-feltet på hvert element) for tydeligere skille. Koblet inn (2026-09-07) i "Registrer barn" for å velge en eksisterende foresatt (togglet mot "Ny foresatt" via `Tabs`) - se gap-avsnittet under. "Nytt utlån" bruker fortsatt den enklere `Select`-erstatningen for låntaker/utstyr; den utskiftingen er senere arbeid |
+| "..."-handlingsmeny på tabellrader | `DropdownMenu` (`frontend/src/components/ui/dropdown-menu.tsx`, ny - `@base-ui/react` har ingen ferdig `DropdownMenu` slik Radix har, så denne pakker `Menu`-primitiven i samme stil som `popover.tsx`), brukt av `RowActionsMenu` (`frontend/src/components/row-actions-menu.tsx`) | Tilbyr "Åpne" (lenke til full visning) og "Rediger" (kun når `onEdit` er gitt). **Ingen arkiver-handling** - ingen entitet støtter det ennå, se `05-api.md`. Koblet inn i alle tre tabeller nå (lån, utstyr, barn/foresatt). Samme mønster gjenbrukes for kategoriradenes "..."-meny i `category-tree.tsx` (tre alltid-synlige ikonknapper konsolidert til én), selv om den bruker `DropdownMenuItem` direkte i stedet for `RowActionsMenu` siden handlingene der er kategorispesifikke |
+| Datovelger (fødselsdato o.l.) | `DatePicker` (`frontend/src/components/ui/date-picker.tsx`), på `Calendar` (`react-day-picker`, ny avhengighet - se `12-lisenser-og-vilkar.md`) i `Popover` | Erstatter nettleserens innebygde `<input type="date">`, hvis år-navigasjon er treg (bla én måned av gangen). Bruker `captionLayout="dropdown"` slik at år/måned velges direkte. Samme streng-kontrakt (`"yyyy-MM-dd"`) som det innebygde feltet. Koblet inn i "Registrer barn" (2026-09-07) - dette er den faktiske fiksen for den trege år-blaingen utvikleren meldte inn |
+| Avkrysningsboks | `Checkbox` (`frontend/src/components/ui/checkbox.tsx`, ny - pakker `@base-ui/react/checkbox` i samme stil som `tabs.tsx`) | Bygget 2026-09-07 for "Identitet bekreftet"-feltet i "Registrer barn" (kun ved ny foresatt) - se `09-lover-og-regler.md` |
 | Modal (Nytt utlån, Registrer retur, osv.) | `Dialog` (lagt til) | Header/body/footer-strukturen i designet stemmer med `DialogHeader`/`DialogContent`/`DialogFooter` |
 | Blokkert-varsel, sen-retur-varsel | Egen liten komponent (ikke shadcn `Alert`) | Bygget inline i `new-loan-dialog.tsx`/`register-return-dialog.tsx` med statusfargene. Teksten kommer direkte fra API-ets `ProblemDetails.detail` (se `docs/05-api.md`), ikke hardkodet i frontend |
 | Steg-indikator (Aktiv → Forfalt → Levert) | **Ikke bygget - forenklet til `StatusBadge`** | Lån-detaljsiden viser bare statusmerkelappen, ikke den visuelle stegvisningen fra designet. Verdt å bygge som egen komponent senere hvis stegvisningen vurderes viktig nok til å forsvare arbeidet |
 | Bilde-opplasting (før/ved utlevering og retur) | Egen komponent, kun visuell | Vises som en stiplet boks tagget "Ikke bygget ennå" - se GDPR-kravet i `09-lover-og-regler.md` om at det er utstyret, aldri barnet, som skal fotograferes, når opplasting faktisk bygges |
 | Kommunikasjonslogg / hendelseslinje | Egen komponent | Vises som en forklarende tekst tagget "Ikke bygget ennå" i stedet for en tom liste, siden det ikke finnes data å liste opp |
+
+### Nedtrekksfelt (`Select`): plassering under trigger, ikke ved valgt element
+
+`@base-ui/react`s `Select` støtter to plasseringsmåter for popup-en:
+forankret til det *valgte elementet* (`alignItemWithTrigger`, standard `true`
+i biblioteket - samme idé som Radix' `position="item-aligned"`), eller alltid
+rett under selve trigger-feltet (`alignItemWithTrigger={false}`, Radix'
+`position="popper"`). Den første kan åpne popup-en overlappende eller over
+trigger-feltet avhengig av hvilket element som er valgt - det er trolig det
+utvikleren opplevde som "feil plassering" på Tilstand-/Kategori-feltene i
+"Nytt utstyr". `frontend/src/components/ui/select.tsx` setter nå
+`alignItemWithTrigger={false}` som standard, slik at alle bruksstedene i appen
+får forutsigbar plassering rett under feltet. **Ikke bekreftet visuelt** - det
+finnes ikke noe verktøy for å drive en ekte nettleser i dette miljøet ennå (se
+`run`-skillet); årsaken er bekreftet ved å lese `@base-ui/react`s og denne
+kodens egen kilde, ikke ved skjermbilde. Popup-en portalerer allerede korrekt
+til `document.body` via `SelectPrimitive.Portal`, så den satt fast inni
+dialogens transformerte undertre var **ikke** årsaken - den hypotesen ble
+undersøkt og forkastet.
+
+### Tabellkolonner: fast bredde
+
+Både låne-, utstyrs- og barn/foresatt-tabellen (`loans-explorer.tsx`,
+`equipment-explorer.tsx`, `borrowers-explorer.tsx`) bruker `table-fixed` med
+en eksplisitt bredde (`w-[…%]`) per `TableHead`, i stedet for nettleserens
+standard `table-layout: auto`. Uten det regner nettleseren bredden ut fra
+innholdet som er synlig akkurat nå - når statusfilteret byttes (og dermed
+hvilken `StatusBadge`-tekst som vises), regnes alle kolonnene ut på nytt og
+tabellen "hopper" synlig. Navnekolonner har `truncate` (og `max-w-0` på selve
+cellen - nødvendig fordi en tabellcelle med fast layout ellers ikke lar
+underliggende blokkelementer krympe under egen innholdsbredde) slik at et
+langt navn kuttes med "…" i stedet for å presse resten av raden ut av
+bredden.
 
 ## Ikonografi
 
@@ -268,10 +304,14 @@ siden - de er reelle hull, ikke noe denne dokumentasjonen løser stilltiende:
   "Registrer utlån" (skjemamodalen viser tilstanden som en veksle i designet,
   men ikke hvordan feilen fra et ekte API-kall skal se ut første gang den
   oppstår).
-- **Låntaker-detaljside.** Det finnes ingen egen side for et barn/en foresatt
-  (bare radene i "Barn og foresatte"-tabellen), og dermed heller ingen
-  utesteng-/opphev utestengelse-dialog, selv om dette er en sentral
-  forretningsregel (se `03-domenemodell.md`).
+- **Låntaker-detaljside.** Bygget 2026-09-07 (`app/dashboard/borrowers/[id]/page.tsx`)
+  - viser barnets detaljer og foresattes kontaktinformasjon. Fortsatt **ikke**
+  bygget: utesteng-/opphev utestengelse-dialog, notatvisning, eller
+  lånehistorikk for barnet - selve utestengelsesregelen er en sentral
+  forretningsregel (se `03-domenemodell.md`) og API-endepunktene for den finnes
+  allerede (`05-api.md`), men den fulle oppfølgingsarbeidsflyten i
+  grensesnittet er større enn denne detaljsiden og er ikke del av denne
+  omgangen.
 - **Mobil/responsivt.** Alle 15 skjermbilder er tegnet på fast bredde
   (1440px). Ingenting er sagt om hvordan sidebar, tabeller eller modaler
   oppfører seg på et smalere vindu.

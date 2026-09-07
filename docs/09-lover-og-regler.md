@@ -62,6 +62,14 @@ til det som er nødvendig. Hvert felt i systemet skal kunne begrunnes.
   tvers av offentlige registre. Fødselsdato er tilstrekkelig for både
   aldersgrense og rapportering. Dette er den viktigste enkeltavgrensningen i
   personvernet for systemet.
+
+  Bygget 2026-09-07: `Guardian.IdentityVerifiedAt` er mekanismen som erstatter
+  behovet for å lagre fødselsnummer som identitetsbevis. Ansatt kan se
+  foresattes legitimasjon fysisk i butikken ved registrering og krysse av for
+  det - systemet lagrer da kun *at* og *når* dette skjedde
+  (`IdentityVerifiedAt`), aldri ID-dokumentet, nummeret eller noe bilde av det.
+  Feltet er valgfritt og blokkerer ikke registrering - det er et hjelpemiddel
+  for ansatte, ikke en ny forretningsregel.
 - **Bilder av barn.** Det tas bilde av *utstyret*, aldri av låntakeren.
 - **Helseopplysninger** eller andre særlige kategorier etter artikkel 9.
 - **Personopplysninger i applikasjonslogger.** Logger inneholder identifikatorer
@@ -147,6 +155,33 @@ Behandlingen gjelder barn, og innebærer en form for systematisk vurdering av
 adferd. Det taler for at en forenklet DPIA etter artikkel 35 bør gjennomføres
 før systemet settes i produksjon. Det ligger utenfor omfanget av dette forslaget,
 men er dokumentert her som en anbefaling til oppdragsgiver.
+
+## Fremtidig vurdering: samtykke til erstatningsansvar
+
+Vurdert 2026-09-07 og bevisst **ikke bygget** i dette forslaget: at foresatt,
+ved registrering av utlån, krysser av for å ha akseptert et vilkår om at de er
+økonomisk ansvarlige for skade på utstyret, og skal dekke reparasjon eller
+erstatning ved behov.
+
+Dette er **ikke en erstatning for bilder av utstyret** (forretningsregel 5 i
+`03-domenemodell.md`), og skal ikke bygges som en. Et avkrysningsfelt gir
+butikken en avtalemessig rett til å kreve betaling - det sier ingenting om
+*når* skaden oppsto. Det er fortsatt `EquipmentCondition` registrert av ansatt
+ved utlån og retur, styrket av bilder, som skal avgjøre om skaden skjedde i
+låneperioden. Uten det bevisgrunnlaget avgjøres enhver uenighet til butikkens
+fordel per definisjon, noe som er vanskelig å forsvare overfor familier i en
+kommunalt finansiert ordning for barn.
+
+Grunnen til at feltet likevel ikke bygges nå: en avkrysning som gir inntrykk
+av en bindende avtale forutsetter en faktisk vilkårstekst, gjennomgått av
+kommunens jurist - ikke tekst skrevet av utvikleren av et forslag som per
+CLAUDE.md eksplisitt ikke skal fremstå som produksjonsklart. Å bygge
+funksjonen uten den gjennomgangen ville gitt systemet en falsk fremstilling av
+juridisk bindende kraft.
+
+**Anbefaling til oppdragsgiver:** vurder en slik samtykkemekanisme som et
+tillegg til - ikke en erstatning for - bildedokumentasjon, når reelle vilkår
+er utarbeidet og godkjent juridisk.
 
 ## Oppsummering av designvalg begrunnet i personvern
 

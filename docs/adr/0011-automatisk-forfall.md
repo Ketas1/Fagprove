@@ -51,3 +51,24 @@ Beregningen er fasit. Jobben er en materialisering av den, ikke en egen sannhet.
 - Bakgrunnsjobben er en ekstra komponent som må kjøre og som må testes.
 - Klokken må være injisert, ikke lest fra systemet direkte, ellers kan verken
   beregningen eller jobben testes. Se `07-testing.md`.
+
+## Status 2026-09-07: bakgrunnsjobben er bygget
+
+Begge halvdeler av beslutningen er nå implementert:
+
+- Lesing: `Loan.IsOverdueNow(IClock)` - uendret siden opprinnelig beslutning.
+- Skriving: `Loan.RefreshOverdueStatus(IClock)`, kalt av
+  `Services/BackgroundJobs/OverdueLoanBackgroundService.cs` - en
+  `BackgroundService` registrert som `IHostedService` i `Program.cs`, ikke en
+  ekstern jobbplanlegger (Hangfire/Quartz). Prosjektet trengte ikke den
+  avhengigheten fra før, og en `BackgroundService` med `PeriodicTimer` er det
+  ASP.NET Core allerede tilbyr for nettopp dette.
+- Intervallet er konfigurerbart (`OverdueCheck:IntervalSeconds` i
+  `appsettings.json`, standard 60 sekunder). Verdien er valgt for at en
+  overgang skal være synlig raskt ved uttesting og demonstrasjon av systemet -
+  den er ikke justert for produksjonslast, og forblir en åpen vurdering hvis
+  systemet noen gang driftes for reelle brukere.
+- Selve `RefreshOverdueLoansAsync`-metoden er skilt ut på `LoanService` slik at
+  den kan testes direkte med en flyttet klokke, uten å vente på at
+  bakgrunnsjobben faktisk kjører - se `Controllers/OverdueLoanRefreshTests.cs`
+  og `05-api.md`.

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SportForAlle.Api.Data;
+using SportForAlle.Api.Dtos.Bans;
 using SportForAlle.Api.Dtos.Borrowers;
+using SportForAlle.Api.Dtos.Notes;
 using SportForAlle.Api.Helpers;
 using SportForAlle.Api.Mapping;
 using SportForAlle.Api.Models;
@@ -49,7 +51,8 @@ public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserCo
                 request.NewGuardian.Email,
                 request.NewGuardian.Phone,
                 clock,
-                staffId);
+                staffId,
+                request.NewGuardian.IdentityVerified);
 
         if (createsNewGuardian)
         {
@@ -77,6 +80,103 @@ public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserCo
 
         return BorrowerMapper.ToResponse(borrower, guardian.Name);
     }
+
+    /// <summary>Business rule 2 in docs/03-domenemodell.md: a banned borrower cannot register a new loan.</summary>
+    public async Task<BanResponse> BanAsync(Guid id, BanBorrowerRequest request, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        if (borrower.Status == BorrowerStatus.Banned)
+        {
+            throw new DomainConflictException("BorrowerAlreadyBanned", "Låntakeren er allerede utestengt.");
+        }
+
+        borrower.Ban(request.Reason, clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return BanMapper.ToResponse(borrower.Bans.Single(ban => ban.IsActive));
+    }
+
+    /// <summary>Records the fee that business rule 8 requires before a ban can be lifted.</summary>
+    public async Task<BanResponse> RecordBanFeePaidAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = LoadForBanTransition(await dbContext.Borrowers
+            .Include(b => b.Bans)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken));
+
+        borrower.RecordBanFeePaid(clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return BanMapper.ToResponse(CurrentBan(borrower));
+    }
+
+    /// <summary>Business rule 8 in docs/03-domenemodell.md: requires the fee to already be recorded as paid.</summary>
+    public async Task LiftBanAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = LoadForBanTransition(await dbContext.Borrowers
+            .Include(b => b.Bans)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken));
+
+        if (CurrentBan(borrower).FeePaidAt is null)
+        {
+            throw new DomainConflictException("BanFeeNotPaid", "Gebyret er ikke registrert betalt ennå.");
+        }
+
+        borrower.LiftBan(clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<NoteResponse> AddNoteAsync(Guid id, CreateNoteRequest request, CancellationToken cancellationToken)
+    {
+        bool borrowerExists = await dbContext.Borrowers.AnyAsync(b => b.Id == id, cancellationToken);
+
+        if (!borrowerExists)
+        {
+            throw new NotFoundException("Fant ikke låntaker.");
+        }
+
+        Note note = new(id, request.Text, clock, currentUser.RequireStaffId());
+        dbContext.Notes.Add(note);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoteMapper.ToResponse(note);
+    }
+
+    public async Task<IReadOnlyList<NoteResponse>> GetNotesAsync(Guid id, CancellationToken cancellationToken)
+    {
+        bool borrowerExists = await dbContext.Borrowers.AnyAsync(b => b.Id == id, cancellationToken);
+
+        if (!borrowerExists)
+        {
+            throw new NotFoundException("Fant ikke låntaker.");
+        }
+
+        List<Note> notes = await dbContext.Notes
+            .Where(note => note.BorrowerId == id)
+            .OrderByDescending(note => note.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return notes.Select(NoteMapper.ToResponse).ToList();
+    }
+
+    /// <summary>Shared not-banned guard for the two transitions that require an existing, active ban.</summary>
+    private static Borrower LoadForBanTransition(Borrower? borrower)
+    {
+        if (borrower is null)
+        {
+            throw new NotFoundException("Fant ikke låntaker.");
+        }
+
+        if (borrower.Status != BorrowerStatus.Banned)
+        {
+            throw new DomainConflictException("BorrowerNotBanned", "Låntakeren er ikke utestengt.");
+        }
+
+        return borrower;
+    }
+
+    private static Ban CurrentBan(Borrower borrower) => borrower.Bans.Single(ban => ban.IsActive);
 
     /// <summary>
     /// Filtering and ordering are applied inside this query, not by chaining

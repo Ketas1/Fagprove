@@ -81,6 +81,41 @@ public class GuardiansEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task Create_without_identity_verification_leaves_IdentityVerifiedAt_null()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/guardians", new
+        {
+            Name = "Ikke Bekreftet",
+            Email = $"{Guid.NewGuid()}@example.no",
+            Phone = "12345678",
+        });
+
+        GuardianPayload created = (await createResponse.Content.ReadFromJsonAsync<GuardianPayload>())!;
+        Assert.Null(created.IdentityVerifiedAt);
+    }
+
+    [Fact]
+    public async Task Create_with_identity_verified_records_a_timestamp()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage createResponse = await client.PostAsJsonAsync("/api/guardians", new
+        {
+            Name = "Bekreftet Foresatt",
+            Email = $"{Guid.NewGuid()}@example.no",
+            Phone = "12345678",
+            IdentityVerified = true,
+        });
+
+        GuardianPayload created = (await createResponse.Content.ReadFromJsonAsync<GuardianPayload>())!;
+        Assert.NotNull(created.IdentityVerifiedAt);
+    }
+
+    [Fact]
     public async Task Create_populates_CreatedByStaffId_with_a_real_staff_member()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
@@ -100,7 +135,8 @@ public class GuardiansEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Contains(staffMembers!, staff => staff.Id == created.CreatedByStaffId);
     }
 
-    private sealed record GuardianPayload(Guid Id, string Name, string Email, string Phone, Guid? CreatedByStaffId);
+    private sealed record GuardianPayload(
+        Guid Id, string Name, string Email, string Phone, DateTimeOffset? IdentityVerifiedAt, Guid? CreatedByStaffId);
 
     private sealed record StaffPayload(Guid Id, string Name, string? Auth0UserId);
 }

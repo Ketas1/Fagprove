@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SportForAlle.Api.Data;
+using SportForAlle.Api.Dtos.ContactAttempts;
 using SportForAlle.Api.Dtos.Loans;
 using SportForAlle.Api.Helpers;
 using SportForAlle.Api.Mapping;
@@ -87,6 +88,93 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name);
+    }
+
+    /// <summary>The equipment was confirmed lost or destroyed while on loan - a terminal state for both.</summary>
+    public async Task<LoanResponse> MarkLostAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Loan loan = await dbContext.Loans.FirstOrDefaultAsync(l => l.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utlån.");
+
+        if (loan.Status is LoanStatus.Returned or LoanStatus.Lost)
+        {
+            throw new DomainConflictException("LoanAlreadyClosed", "Utlånet er allerede avsluttet.");
+        }
+
+        Equipment equipment = await dbContext.Equipment.FirstOrDefaultAsync(e => e.Id == loan.EquipmentId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utstyr.");
+
+        Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == loan.BorrowerId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        Guid staffId = currentUser.RequireStaffId();
+        loan.MarkLost(clock, staffId);
+        equipment.MarkWrittenOff(clock, staffId);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name);
+    }
+
+    /// <summary>Business rule 6 in docs/03-domenemodell.md: every contact attempt is logged with date, method and outcome.</summary>
+    public async Task<ContactAttemptResponse> LogContactAttemptAsync(
+        Guid id, LogContactAttemptRequest request, CancellationToken cancellationToken)
+    {
+        bool loanExists = await dbContext.Loans.AnyAsync(loan => loan.Id == id, cancellationToken);
+
+        if (!loanExists)
+        {
+            throw new NotFoundException("Fant ikke utlån.");
+        }
+
+        ContactAttempt attempt = new(id, request.Method, request.Outcome, clock, currentUser.RequireStaffId());
+        dbContext.ContactAttempts.Add(attempt);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ContactAttemptMapper.ToResponse(attempt);
+    }
+
+    public async Task<IReadOnlyList<ContactAttemptResponse>> GetContactAttemptsAsync(
+        Guid id, CancellationToken cancellationToken)
+    {
+        bool loanExists = await dbContext.Loans.AnyAsync(loan => loan.Id == id, cancellationToken);
+
+        if (!loanExists)
+        {
+            throw new NotFoundException("Fant ikke utlån.");
+        }
+
+        List<ContactAttempt> attempts = await dbContext.ContactAttempts
+            .Where(attempt => attempt.LoanId == id)
+            .OrderByDescending(attempt => attempt.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return attempts.Select(ContactAttemptMapper.ToResponse).ToList();
+    }
+
+    /// <summary>
+    /// The write-time half of ADR-0011: finds every loan still marked <see cref="LoanStatus.Active"/>
+    /// but past its due date and materialises it to <see cref="LoanStatus.Overdue"/>. Called by
+    /// <see cref="BackgroundJobs.OverdueLoanBackgroundService"/> on a timer, and directly from
+    /// tests via an injected clock - never depends on the timer itself having run.
+    /// </summary>
+    public async Task<int> RefreshOverdueLoansAsync(CancellationToken cancellationToken)
+    {
+        List<Loan> dueLoans = await dbContext.Loans
+            .Where(loan => loan.Status == LoanStatus.Active && loan.DueDate < clock.UtcNow)
+            .ToListAsync(cancellationToken);
+
+        foreach (Loan loan in dueLoans)
+        {
+            loan.RefreshOverdueStatus(clock);
+        }
+
+        if (dueLoans.Count > 0)
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return dueLoans.Count;
     }
 
     /// <summary>

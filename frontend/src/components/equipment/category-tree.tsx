@@ -1,8 +1,14 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronRight, FolderTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ChevronRight, FolderTree, MoreHorizontal, Package, Pencil, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { buildCategoryTree, flattenVisible, type CategoryNode } from '@/lib/category-tree';
 import { CreateCategoryDialog, DeleteCategoryDialog, RenameCategoryDialog } from '@/components/equipment/category-dialogs';
@@ -61,14 +67,17 @@ export function CategoryTree({
       <button
         onClick={() => onSelect(null)}
         className={cn(
-          'rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted',
-          selectedCategoryId === null && 'bg-muted font-medium text-foreground',
+          'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-muted',
+          selectedCategoryId === null
+            ? 'border-transparent bg-muted text-foreground'
+            : 'border-border bg-transparent text-muted-foreground',
         )}
       >
+        <Package className="size-3.5" />
         Alt utstyr
       </button>
 
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1.5">
         {visible.map(({ node, depth }) => (
           <CategoryRow
             key={node.id}
@@ -141,7 +150,7 @@ function CategoryRow({
   return (
     <div
       className={cn(
-        'flex items-center gap-1 rounded-md py-1 pr-1 text-sm hover:bg-muted/60',
+        'flex items-center gap-1 rounded-md py-1.5 pr-1 text-sm hover:bg-muted/60',
         isSelected && 'bg-muted font-medium',
       )}
       style={{ paddingLeft: depth * 16 + 4 }}
@@ -156,15 +165,26 @@ function CategoryRow({
         {node.name}
         <span className="text-xs text-muted-foreground">({equipmentCount})</span>
       </button>
-      <Button variant="ghost" size="icon-xs" onClick={onAddChild} title="Ny underkategori">
-        <Plus />
-      </Button>
-      <Button variant="ghost" size="icon-xs" onClick={onRename} title="Gi nytt navn">
-        <Pencil />
-      </Button>
-      <Button variant="ghost" size="icon-xs" onClick={onDelete} title="Slett">
-        <Trash2 />
-      </Button>
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={
+            <Button variant="ghost" size="icon-xs" aria-label={`Handlinger for ${node.name}`}>
+              <MoreHorizontal />
+            </Button>
+          }
+        />
+        <DropdownMenuContent>
+          <DropdownMenuItem onClick={onAddChild}>
+            <Plus /> Ny underkategori
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onRename}>
+            <Pencil /> Gi nytt navn
+          </DropdownMenuItem>
+          <DropdownMenuItem variant="destructive" onClick={onDelete}>
+            <Trash2 /> Slett
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }

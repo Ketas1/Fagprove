@@ -31,7 +31,13 @@ public static class BorrowerRules
         }
     }
 
-    private static int CalculateAge(DateOnly dateOfBirth, DateTimeOffset asOf)
+    /// <summary>
+    /// Shared with <see cref="ReportService"/>, which buckets loans by the
+    /// borrower's age at <c>Loan.StartedAt</c> - the same calculation,
+    /// evaluated as of a different instant, kept in one place per ADR-0011's
+    /// "not written twice" rule.
+    /// </summary>
+    internal static int CalculateAge(DateOnly dateOfBirth, DateTimeOffset asOf)
     {
         DateOnly today = DateOnly.FromDateTime(asOf.UtcDateTime);
         int age = today.Year - dateOfBirth.Year;
