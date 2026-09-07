@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDownIcon } from "lucide-react"
+import { ChevronDownIcon, PlusIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import {
@@ -36,6 +36,8 @@ function Combobox({
   emptyText = "Ingen treff.",
   disabled,
   className,
+  onCreateNew,
+  createLabel = (query) => `Opprett «${query}»`,
 }: {
   items: ComboboxItem[]
   value: string | null
@@ -45,26 +47,54 @@ function Combobox({
   emptyText?: string
   disabled?: boolean
   className?: string
+  /**
+   * When given, shows a "create new" row once the typed text has no exact
+   * match among `items` - the caller does the actual creating (the API
+   * call, merging the new item into `items`, and calling `onChange` to
+   * select it). This component only offers the shortcut, it has no opinion
+   * on what "create" means for a given entity.
+   */
+  onCreateNew?: (query: string) => void
+  /** Label for the create-new row. Defaults to `Opprett «query»`. */
+  createLabel?: (query: string) => string
 }) {
   const [open, setOpen] = React.useState(false)
+  const [query, setQuery] = React.useState("")
   const selected = items.find((item) => item.id === value) ?? null
+  const trimmedQuery = query.trim()
+  const lowerQuery = trimmedQuery.toLowerCase()
+  const hasExactMatch = items.some((item) => item.label.toLowerCase() === lowerQuery)
+  const showCreateRow = Boolean(onCreateNew) && trimmedQuery.length > 0 && !hasExactMatch
 
-  const groups = React.useMemo(() => {
-    const byGroup = new Map<string | undefined, ComboboxItem[]>()
-    for (const item of items) {
-      const key = item.group
-      const bucket = byGroup.get(key)
-      if (bucket) {
-        bucket.push(item)
-      } else {
-        byGroup.set(key, [item])
-      }
+  // Filtering is done here, not left to cmdk's own built-in fuzzy filter
+  // (disabled below via `shouldFilter={false}`) - the create-new row's
+  // "value" doesn't correspond to any real item, and mixing a synthetic
+  // value into cmdk's own scoring made the row's visibility unreliable.
+  // Doing the filtering ourselves keeps it simple, predictable, and in one
+  // place instead of two. No manual `useMemo` here - the React Compiler
+  // handles memoizing this automatically, and fought a hand-written one.
+  const filteredItems = lowerQuery
+    ? items.filter((item) => item.label.toLowerCase().includes(lowerQuery))
+    : items
+
+  const groups: [string | undefined, ComboboxItem[]][] = []
+  for (const item of filteredItems) {
+    const bucket = groups.find(([key]) => key === item.group)
+    if (bucket) {
+      bucket[1].push(item)
+    } else {
+      groups.push([item.group, [item]])
     }
-    return [...byGroup.entries()]
-  }, [items])
+  }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) setQuery("")
+      }}
+    >
       <PopoverTrigger
         disabled={disabled}
         role="combobox"
@@ -84,10 +114,10 @@ function Combobox({
         data-slot="combobox-content"
         className="w-(--anchor-width) min-w-56 p-0"
       >
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={searchPlaceholder} value={query} onValueChange={setQuery} />
           <CommandList>
-            <CommandEmpty>{emptyText}</CommandEmpty>
+            {filteredItems.length === 0 && !showCreateRow && <CommandEmpty>{emptyText}</CommandEmpty>}
             {groups.map(([group, groupItems]) => (
               <CommandGroup key={group ?? "__ungrouped"} heading={group}>
                 {groupItems.map((item) => (
@@ -105,6 +135,20 @@ function Combobox({
                 ))}
               </CommandGroup>
             ))}
+            {showCreateRow && (
+              <CommandGroup>
+                <CommandItem
+                  value={`__create__${trimmedQuery}`}
+                  onSelect={() => {
+                    onCreateNew?.(trimmedQuery)
+                    setOpen(false)
+                  }}
+                >
+                  <PlusIcon />
+                  {createLabel(trimmedQuery)}
+                </CommandItem>
+              </CommandGroup>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
