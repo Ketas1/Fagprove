@@ -58,7 +58,7 @@ oversettelsene.
 | [07-testing.md](./07-testing.md) | Teststrategi, testnivåer og hva som testes hvor | Påbegynt |
 | [08-sikkerhet.md](./08-sikkerhet.md) | Sikkerhetstiltak og trusselvurdering | Påbegynt |
 | [09-lover-og-regler.md](./09-lover-og-regler.md) | GDPR og personvern, med vekt på data om barn | Ferdig |
-| [10-bruk-av-systemet.md](./10-bruk-av-systemet.md) | Brukerveiledning for ansatte | Ikke påbegynt |
+| [10-bruk-av-systemet.md](./10-bruk-av-systemet.md) | Brukerveiledning for ansatte | Tekst ferdig, skjermbilder mangler |
 | [11-utviklingsmiljo.md](./11-utviklingsmiljo.md) | Prosjektoppsett, teknologistack, filstruktur, Docker og CI | Ferdig |
 | [12-lisenser-og-vilkar.md](./12-lisenser-og-vilkar.md) | Pakkelisenser og vilkår for eksterne tjenester | Påbegynt |
 | [13-frontend-designsystem.md](./13-frontend-designsystem.md) | Typografi, farger, komponenter og tilstander - regelsettet bak alle sider | Ferdig |
