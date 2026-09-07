@@ -188,9 +188,16 @@ Forfall skal oppdages uten at ansatte gjør noe. Det finnes to måter:
 2. **Bakgrunnsjobb** - en jobb som med jevne mellomrom setter `Status = Overdue`
    på lån som har passert fristen.
 
-Systemet bruker begge: statusen beregnes ved lesing slik at oversikten aldri
-viser feil, og en bakgrunnsjobb skriver statusen til databasen slik at forfall
-kan brukes i rapporter og spørringer. Se
+Systemet er *designet* for å bruke begge, men bare den ene halvparten er bygget
+per nå: `Loan.IsOverdueNow(...)` (lesetidspunktet) finnes og brukes av
+blokkeringsregelen, mens bakgrunnsjobben som skulle skrevet `Overdue` til
+databasen ikke er bygget ennå (`Loan.RefreshOverdueStatus(...)` finnes, men
+ingenting kaller den). Praktisk konsekvens: `GET /api/loans?status=Overdue`
+returnerer ikke et forfalt lån før jobben finnes, siden filteret spør mot den
+lagrede kolonnen. Frontend regner derfor ut det samme lesetidspunkt-sjekket
+selv (`effectiveLoanStatus` i `frontend/src/lib/loan-status.ts`) i stedet for
+å stole på den lagrede statusen alene - se
+[`13-frontend-designsystem.md`](./13-frontend-designsystem.md). Se
 [ADR-0011](./adr/0011-automatisk-forfall.md).
 
 ## Kjøremiljø

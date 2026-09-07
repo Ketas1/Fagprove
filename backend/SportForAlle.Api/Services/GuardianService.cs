@@ -24,7 +24,8 @@ public class GuardianService(AppDbContext dbContext, IClock clock, CurrentUserCo
 
     public async Task<GuardianResponse> CreateAsync(CreateGuardianRequest request, CancellationToken cancellationToken)
     {
-        Guardian guardian = new(request.Name, request.Email, request.Phone, clock, currentUser.RequireStaffId());
+        Guardian guardian = new(
+            request.Name, request.Email, request.Phone, clock, currentUser.RequireStaffId(), request.IdentityVerified);
 
         dbContext.Guardians.Add(guardian);
         await dbContext.SaveChangesAsync(cancellationToken);

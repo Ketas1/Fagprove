@@ -61,6 +61,7 @@ oversettelsene.
 | [10-bruk-av-systemet.md](./10-bruk-av-systemet.md) | Brukerveiledning for ansatte | Ikke påbegynt |
 | [11-utviklingsmiljo.md](./11-utviklingsmiljo.md) | Prosjektoppsett, teknologistack, filstruktur, Docker og CI | Ferdig |
 | [12-lisenser-og-vilkar.md](./12-lisenser-og-vilkar.md) | Pakkelisenser og vilkår for eksterne tjenester | Påbegynt |
+| [13-frontend-designsystem.md](./13-frontend-designsystem.md) | Typografi, farger, komponenter og tilstander - regelsettet bak alle sider | Ferdig |
 | [adr/](./adr/) | Architecture Decision Records - alle tekniske valg | Løpende |
 | [arbeidslogg.md](./arbeidslogg.md) | Daglig arbeidslogg - grunnlag for sluttrapporten | Løpende |
 

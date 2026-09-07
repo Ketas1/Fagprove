@@ -232,6 +232,9 @@ namespace SportForAlle.Api.Data.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<Guid?>("ParentCategoryId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -243,9 +246,14 @@ namespace SportForAlle.Api.Data.Migrations
                     b.HasIndex("CreatedByStaffId");
 
                     b.HasIndex("Name")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"ParentCategoryId\" IS NULL");
 
                     b.HasIndex("UpdatedByStaffId");
+
+                    b.HasIndex("ParentCategoryId", "Name")
+                        .IsUnique()
+                        .HasFilter("\"ParentCategoryId\" IS NOT NULL");
 
                     b.ToTable("EquipmentCategories", (string)null);
                 });
@@ -265,6 +273,9 @@ namespace SportForAlle.Api.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(320)
                         .HasColumnType("character varying(320)");
+
+                    b.Property<DateTimeOffset?>("IdentityVerifiedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -507,6 +518,11 @@ namespace SportForAlle.Api.Data.Migrations
                         .WithMany()
                         .HasForeignKey("CreatedByStaffId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("SportForAlle.Api.Models.EquipmentCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ParentCategoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("SportForAlle.Api.Models.Staff", null)
                         .WithMany()

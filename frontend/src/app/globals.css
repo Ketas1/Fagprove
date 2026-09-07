@@ -39,6 +39,14 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-status-danger-bg: var(--status-danger-bg);
+  --color-status-danger-fg: var(--status-danger-fg);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-fg: var(--status-warning-fg);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-fg: var(--status-success-fg);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-fg: var(--status-info-fg);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -55,8 +63,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
+  --primary: #1f6e45;
+  --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -67,6 +75,19 @@
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
   --ring: oklch(0.708 0 0);
+
+  /* Status colors - map directly to LoanStatus/EquipmentStatus/BorrowerStatus,
+     see docs/13-frontend-designsystem.md. Not shadcn tokens: --accent above
+     already means "hover/selected background" in shadcn's own components,
+     so these live under their own names instead of overloading it. */
+  --status-danger-bg: oklch(0.577 0.22 25 / 0.1);
+  --status-danger-fg: oklch(0.5 0.2 25);
+  --status-warning-bg: oklch(0.65 0.15 70 / 0.15);
+  --status-warning-fg: oklch(0.5 0.14 65);
+  --status-success-bg: oklch(0.5 0.13 152 / 0.12);
+  --status-success-fg: oklch(0.4 0.13 152);
+  --status-info-bg: oklch(0.55 0.14 250 / 0.1);
+  --status-info-fg: oklch(0.47 0.16 255);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);

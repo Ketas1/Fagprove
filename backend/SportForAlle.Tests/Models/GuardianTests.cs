@@ -73,4 +73,21 @@ public class GuardianTests
 
         Assert.Empty(guardian.Borrowers);
     }
+
+    [Fact]
+    public void IdentityVerifiedAt_is_null_by_default()
+    {
+        Guardian guardian = CreateGuardian();
+
+        Assert.Null(guardian.IdentityVerifiedAt);
+    }
+
+    [Fact]
+    public void IdentityVerifiedAt_records_the_clock_time_when_verification_is_requested()
+    {
+        Guardian guardian = new(
+            "Kari Nordmann", "kari@example.no", "12345678", _clock, createdByStaffId: null, identityVerified: true);
+
+        Assert.Equal(_clock.UtcNow, guardian.IdentityVerifiedAt);
+    }
 }

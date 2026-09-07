@@ -6,12 +6,13 @@ using SportForAlle.Tests.TestSupport;
 namespace SportForAlle.Tests.Controllers;
 
 /// <summary>
-/// The <c>BorrowerBanned</c> and <c>BorrowerHasOverdueLoan</c> 409 reasons
-/// are not exercised here: there is no ban endpoint yet (out of scope, see
-/// docs/05-api.md), and reaching an overdue loan through the real API would
-/// need a due date in the past, which <see cref="SportForAlle.Api.Models.Loan"/>'s
-/// constructor rejects. Both are covered at the unit level instead, see
-/// SportForAlle.Tests/Services/Rules/LoanRulesTests.cs.
+/// <c>BorrowerHasOverdueLoan</c> is not exercised here: reaching an overdue loan
+/// through the real API needs a due date in the past, which
+/// <see cref="SportForAlle.Api.Models.Loan"/>'s constructor rejects outright.
+/// It is covered at the unit level instead
+/// (SportForAlle.Tests/Services/Rules/LoanRulesTests.cs) and, for the write-time
+/// materialisation itself, in Controllers/OverdueLoanRefreshTests.cs.
+/// <c>BorrowerBanned</c> is exercised below, now that the ban endpoint exists.
 /// </summary>
 public class LoansEndpointTests(WebApplicationFactory<Program> factory)
     : IClassFixture<WebApplicationFactory<Program>>
@@ -145,6 +146,117 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task Register_rejects_a_banned_borrower_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Utestengt før lån forsøkt." });
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("BorrowerBanned", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task MarkLost_sets_the_loan_lost_and_writes_off_the_equipment()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload loan = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+
+        HttpResponseMessage response = await client.PostAsync($"/api/loans/{loan.Id}/mark-lost", null);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        LoanPayload? updated = await response.Content.ReadFromJsonAsync<LoanPayload>();
+        Assert.Equal("Lost", updated?.Status);
+        EquipmentStatusPayload? equipment =
+            await client.GetFromJsonAsync<EquipmentStatusPayload>($"/api/equipment/{equipmentId}");
+        Assert.Equal("WrittenOff", equipment?.Status);
+    }
+
+    [Fact]
+    public async Task MarkLost_rejects_a_loan_that_is_already_returned_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload loan = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+        await client.PostAsJsonAsync($"/api/loans/{loan.Id}/return", new { Condition = "Good" });
+
+        HttpResponseMessage response = await client.PostAsync($"/api/loans/{loan.Id}/mark-lost", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("LoanAlreadyClosed", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task ContactAttempts_can_be_logged_and_read_back()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload loan = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+
+        HttpResponseMessage logResponse = await client.PostAsJsonAsync($"/api/loans/{loan.Id}/contact-attempts", new
+        {
+            Method = "Phone",
+            Outcome = "Ingen svar.",
+        });
+
+        Assert.Equal(HttpStatusCode.OK, logResponse.StatusCode);
+        List<ContactAttemptPayload>? attempts =
+            await client.GetFromJsonAsync<List<ContactAttemptPayload>>($"/api/loans/{loan.Id}/contact-attempts");
+        Assert.Contains(attempts!, attempt => attempt.Outcome == "Ingen svar." && attempt.Method == "Phone");
+    }
+
+    [Fact]
+    public async Task ContactAttempts_return_404_for_a_loan_that_does_not_exist()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsJsonAsync($"/api/loans/{Guid.NewGuid()}/contact-attempts", new
+        {
+            Method = "Email",
+            Outcome = "Lån som ikke finnes.",
+        });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Return_on_time_frees_the_equipment_again()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
@@ -221,4 +333,6 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
     private sealed record LoanPayload(Guid Id, string Status, int? DaysLate);
 
     private sealed record EquipmentStatusPayload(Guid Id, string Status);
+
+    private sealed record ContactAttemptPayload(Guid Id, string Method, string Outcome);
 }

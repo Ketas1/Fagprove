@@ -275,6 +275,10 @@ Then add a row to the migration table in `docs/04-databasedesign.md`.
 - Tailwind utilities in the markup; extract a component rather than inventing a
   custom CSS layer.
 - Types for API responses are defined once and shared, not re-declared per page.
+- Typography, color tokens, radii, spacing and the component inventory (which
+  shadcn primitive backs which piece of UI) are fixed by
+  `docs/13-frontend-designsystem.md`, derived from the approved design. A new
+  page matches it - it does not invent its own spacing scale or badge colors.
 
 ### Git
 

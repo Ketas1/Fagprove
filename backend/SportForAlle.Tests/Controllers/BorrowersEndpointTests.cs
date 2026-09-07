@@ -144,5 +144,140 @@ public class BorrowersEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 
-    private sealed record BorrowerPayload(Guid Id, string Name, Guid GuardianId, string GuardianName);
+    [Fact]
+    public async Task Ban_sets_the_borrower_status_to_banned()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/borrowers/{borrowerId}/ban", new { Reason = "Uteble flere ganger etter kontaktforsøk." });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        BanPayload? ban = await response.Content.ReadFromJsonAsync<BanPayload>();
+        Assert.True(ban?.IsActive);
+        BorrowerPayload? borrower = await client.GetFromJsonAsync<BorrowerPayload>($"/api/borrowers/{borrowerId}");
+        Assert.Equal("Banned", borrower?.Status);
+    }
+
+    [Fact]
+    public async Task GetCurrentBan_returns_the_active_ban_for_a_banned_borrower()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Gjentatte forsene leveringer." });
+
+        BanPayload? ban = await client.GetFromJsonAsync<BanPayload>($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.True(ban?.IsActive);
+        Assert.Equal("Gjentatte forsene leveringer.", ban?.Reason);
+    }
+
+    [Fact]
+    public async Task GetCurrentBan_returns_404_for_a_borrower_that_is_not_banned()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        HttpResponseMessage response = await client.GetAsync($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Ban_rejects_a_borrower_that_is_already_banned_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Første utestengelse." });
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/borrowers/{borrowerId}/ban", new { Reason = "Andre forsøk." });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("BorrowerAlreadyBanned", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task Lift_ban_rejects_a_borrower_whose_fee_has_not_been_paid_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Utestengt." });
+
+        HttpResponseMessage response = await client.DeleteAsync($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("BanFeeNotPaid", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task Lift_ban_after_the_fee_is_paid_reactivates_the_borrower()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Utestengt." });
+        await client.PostAsync($"/api/borrowers/{borrowerId}/ban/fee-paid", null);
+
+        HttpResponseMessage response = await client.DeleteAsync($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.Equal(HttpStatusCode.NoContent, response.StatusCode);
+        BorrowerPayload? borrower = await client.GetFromJsonAsync<BorrowerPayload>($"/api/borrowers/{borrowerId}");
+        Assert.Equal("Active", borrower?.Status);
+    }
+
+    [Fact]
+    public async Task Lift_ban_rejects_a_borrower_that_is_not_banned_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        HttpResponseMessage response = await client.DeleteAsync($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("BorrowerNotBanned", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task Notes_can_be_added_and_read_back()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        HttpResponseMessage addResponse = await client.PostAsJsonAsync(
+            $"/api/borrowers/{borrowerId}/notes", new { Text = "Ikke svart på to kontaktforsøk." });
+
+        Assert.Equal(HttpStatusCode.OK, addResponse.StatusCode);
+        List<NotePayload>? notes = await client.GetFromJsonAsync<List<NotePayload>>($"/api/borrowers/{borrowerId}/notes");
+        Assert.Contains(notes!, note => note.Text == "Ikke svart på to kontaktforsøk.");
+    }
+
+    [Fact]
+    public async Task Notes_return_404_for_a_borrower_that_does_not_exist()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsJsonAsync(
+            $"/api/borrowers/{Guid.NewGuid()}/notes", new { Text = "Notat om et barn som ikke finnes." });
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    private sealed record BorrowerPayload(Guid Id, string Name, Guid GuardianId, string GuardianName, string Status);
+
+    private sealed record BanPayload(Guid Id, string Reason, bool IsActive);
+
+    private sealed record NotePayload(Guid Id, string Text);
 }

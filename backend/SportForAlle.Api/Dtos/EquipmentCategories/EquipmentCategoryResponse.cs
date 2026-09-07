@@ -1,3 +1,8 @@
 namespace SportForAlle.Api.Dtos.EquipmentCategories;
 
-public record EquipmentCategoryResponse(Guid Id, string Name, Guid? CreatedByStaffId, Guid? UpdatedByStaffId);
+public record EquipmentCategoryResponse(
+    Guid Id,
+    string Name,
+    Guid? ParentCategoryId,
+    Guid? CreatedByStaffId,
+    Guid? UpdatedByStaffId);

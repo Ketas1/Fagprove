@@ -1,9 +1,10 @@
 # Backend-API
 
 > **Status:** kjerneflyten - kategorier, foresatte, barn, utstyr og utlån - er
-> bygget og dokumentert under. Notater, utestengelse, kontaktforsøk, bekreftet
-> tap/skade og rapporter er ikke bygget ennå, se "Ikke bygget i denne omgangen"
-> nederst.
+> bygget, og det samme er hele oppfølgingsarbeidsflyten: notater, utestengelse,
+> kontaktforsøk, bekreftet tap/skade og rapportene. Se "Ikke bygget i denne
+> omgangen" nederst for det som gjenstår - i hovedsak bilde ved utlån/retur og
+> rollebasert autorisasjon.
 
 ## Konvensjoner
 
@@ -61,13 +62,16 @@ Oversettelsen fra unntak til `ProblemDetails` skjer på ett sted:
 | `BorrowerBanned` | `409` | `POST /api/loans` - låntakeren er utestengt |
 | `BorrowerHasOverdueLoan` | `409` | `POST /api/loans` - låntakeren har et åpent forfalt lån |
 | `EquipmentNotAvailable` | `409` | `POST /api/loans` - utstyret er ikke `Available` |
-| `LoanAlreadyClosed` | `409` | `POST /api/loans/{id}/return` - lånet er allerede `Returned` eller `Lost` |
+| `LoanAlreadyClosed` | `409` | `POST /api/loans/{id}/return`, `POST /api/loans/{id}/mark-lost` - lånet er allerede `Returned` eller `Lost` |
 | `DuplicateCategoryName` | `409` | `POST /api/equipment-categories` - navnet er allerede i bruk |
 | `DuplicateSerialNumber` | `409` | `POST /api/equipment` - serienummeret er allerede i bruk |
 | `EquipmentHasLoanHistory` | `409` | `DELETE /api/equipment/{id}` - utstyret har vært del av et utlån |
 | `StaffNotLinked` | `403` | Ethvert endepunkt uten `[AllowUnlinkedStaff]` - brukeren er autentisert, men ikke koblet til en `Staff`-profil, se `06-autentisering.md` |
 | `StaffAlreadyLinked` | `409` | `POST /api/staff/{id}/link-me` - profilen er allerede koblet til en Auth0-konto |
 | `Auth0AccountAlreadyLinked` | `409` | `POST /api/staff/{id}/link-me` - denne Auth0-kontoen er allerede koblet til en annen profil |
+| `BorrowerAlreadyBanned` | `409` | `POST /api/borrowers/{id}/ban` - låntakeren er allerede utestengt |
+| `BorrowerNotBanned` | `409` | `POST /api/borrowers/{id}/ban/fee-paid`, `DELETE /api/borrowers/{id}/ban` - låntakeren er ikke utestengt |
+| `BanFeeNotPaid` | `409` | `DELETE /api/borrowers/{id}/ban` - gebyret er ikke registrert betalt ennå, se forretningsregel 8 |
 
 ## Endepunkter
 
@@ -85,7 +89,7 @@ innlogget; det finnes ingen rollesjekk.
 
 Bygget 2026-09-04 sammen med koblingen mellom `Staff` og Auth0, se
 [ADR-0019](./adr/0019-staff-auth0-mapping.md) og `06-autentisering.md`. Alle
-tre er `[AllowUnlinkedStaff]` - de finnes nettopp for å la en ukoblet bruker
+fire er `[AllowUnlinkedStaff]` - de finnes nettopp for å la en ukoblet bruker
 bli koblet.
 
 | Metode | Rute | Rolle | Beskrivelse |
@@ -93,6 +97,7 @@ bli koblet.
 | `GET` | `/api/staff` | Enhver innlogget bruker | Liste, slik en ukoblet bruker kan se om profilen sin allerede finnes |
 | `POST` | `/api/staff` | Enhver innlogget bruker | Registrer en ny profil (kun navn) |
 | `POST` | `/api/staff/{id}/link-me` | Enhver innlogget bruker | Kobler den innloggede brukerens eget Auth0-`sub` til profilen. Ingen forespørselskropp. `404` hvis profilen ikke finnes, `409 StaffAlreadyLinked` hvis den allerede er koblet, `409 Auth0AccountAlreadyLinked` hvis denne kontoen allerede er koblet et annet sted |
+| `GET` | `/api/staff/me` | Enhver innlogget bruker | Den innloggede brukerens egen profil, funnet via Auth0-`sub` (ikke en id i ruten). `404` hvis kontoen ikke er koblet ennå - det er den vanlige tilstanden for noen som ikke har fullført oppstartsflyten. Bygget 2026-09-07 slik at frontend kan spørre "er dette meg?" uten å hente hele listen, som eksponerer alle profilers `auth0UserId` |
 
 ### Utstyrskategorier
 
@@ -127,10 +132,17 @@ registreres. Ingen `PUT`/`DELETE` ennå - ikke etterspurt for denne omgangen.
 | `GET` | `/api/borrowers/{id}` | Staff | Detaljer. `404` hvis barnet ikke finnes |
 | `POST` | `/api/borrowers` | Staff | Registrer barn. Krever enten `guardianId` (kobler en eksisterende foresatt - for eksempel et søsken) eller `newGuardian` (oppretter en foresatt i samme kall), aldri begge eller ingen (`400`). `422 BorrowerOutsideAgeRange` hvis fødselsdatoen gir en alder utenfor 3-18 år |
 | `PUT` | `/api/borrowers/{id}` | Staff | Endre navn. Fødselsdato og foresatt kan ikke endres etter registrering |
+| `GET` | `/api/borrowers/{id}/ban` | Staff | Låntakerens aktive utestengelse. `404` både hvis låntakeren ikke finnes og hvis de ikke er utestengt - det finnes ingen "aktiv utestengelse"-ressurs i noen av tilfellene |
+| `POST` | `/api/borrowers/{id}/ban` | Staff | Utesteng låntakeren, med årsak. `409 BorrowerAlreadyBanned` hvis allerede utestengt |
+| `POST` | `/api/borrowers/{id}/ban/fee-paid` | Staff | Registrer at gebyret er betalt i butikken. `409 BorrowerNotBanned` hvis låntakeren ikke er utestengt |
+| `DELETE` | `/api/borrowers/{id}/ban` | Staff | Opphev utestengelsen. `409 BorrowerNotBanned` hvis ikke utestengt, `409 BanFeeNotPaid` hvis gebyret ikke er registrert betalt ennå - se forretningsregel 8 |
+| `POST` | `/api/borrowers/{id}/notes` | Staff | Legg til et fritekstnotat om låntakeren |
+| `GET` | `/api/borrowers/{id}/notes` | Staff | Liste over notater, nyeste først |
 
-`POST /api/borrowers/{id}/notes`, `POST /api/borrowers/{id}/ban` og
-`DELETE /api/borrowers/{id}/ban` er ikke bygget ennå, se "Ikke bygget i denne
-omgangen" nederst.
+Utestengelseshistorikk (tidligere, opphevede utestengelser) er ikke
+eksponert som egen liste ennå - `Borrower.Status` viser om låntakeren er
+utestengt *nå*, som er det en fremtidig låntaker-detaljside trenger for å vise
+riktig knapp. Full historikk venter til den siden bygges.
 
 ### Utlån
 
@@ -140,38 +152,42 @@ omgangen" nederst.
 | `GET` | `/api/loans/{id}` | Staff | Detaljer. `404` hvis lånet ikke finnes |
 | `POST` | `/api/loans` | Staff | Registrer utlån. `404` hvis låntaker eller utstyr ikke finnes. `409 BorrowerBanned`, `409 BorrowerHasOverdueLoan` eller `409 EquipmentNotAvailable` ved regelbrudd |
 | `POST` | `/api/loans/{id}/return` | Staff | Registrer retur, med utstyrets tilstand (`condition`). `409 LoanAlreadyClosed` hvis lånet allerede er avsluttet. **Krever ikke bilde ennå** - se forretningsregel 5 i `03-domenemodell.md` |
+| `POST` | `/api/loans/{id}/mark-lost` | Staff | Registrer bekreftet tap eller skade. Setter lånet til `Lost` og utstyret til `WrittenOff`. `409 LoanAlreadyClosed` hvis lånet allerede er avsluttet |
+| `POST` | `/api/loans/{id}/contact-attempts` | Staff | Logg et kontaktforsøk overfor foresatt, med metode og resultat - se forretningsregel 6 |
+| `GET` | `/api/loans/{id}/contact-attempts` | Staff | Liste over kontaktforsøk for lånet, nyeste først, slik at ansatte ser om foresatt allerede er kontaktet |
 
-`POST /api/loans/{id}/contact-attempts` og `POST /api/loans/{id}/mark-lost` er
-ikke bygget ennå.
+Den automatiske forfallsdeteksjonen (forretningsregel 7) er beskrevet i
+[ADR-0011](./adr/0011-automatisk-forfall.md): `Loan.Status` beregnes korrekt
+ved hver lesing uansett, og materialiseres i tillegg til databasen av en
+bakgrunnsjobb (`OverdueLoanBackgroundService`) som kjører med jevne
+mellomrom (`OverdueCheck:IntervalSeconds`, standard 60 sekunder - valgt for at
+en overgang skal være synlig raskt ved uttesting, ikke justert for
+produksjonslast). Jobben har ikke noe eget endepunkt; den kjører i bakgrunnen
+av seg selv.
 
 ### Rapporter
 
-Ikke bygget ennå.
+Alle rapportendepunktene returnerer kun aggregerte tall, aldri enkeltlån eller
+-låntakere, se `09-lover-og-regler.md`.
 
 | Metode | Rute | Rolle | Beskrivelse |
 | --- | --- | --- | --- |
-| `GET` | `/api/reports/loans?from=&to=` | Staff | Antall utlån i perioden |
-| `GET` | `/api/reports/age-groups?from=&to=` | Staff | Fordeling på aldersgruppe |
-| `GET` | `/api/reports/popular-equipment` | Staff | Mest utlånte utstyr |
-| `GET` | `/api/reports/overdue-summary` | Staff | Forsene og uleverte leveringer |
-
-Rapportendepunktene skal returnere kun aggregerte tall, se
-`09-lover-og-regler.md`.
+| `GET` | `/api/reports/loans?from=&to=` | Staff | Antall utlån i perioden (`from`/`to` som `yyyy-MM-dd`, begge påkrevd, `to` kan ikke være før `from`) |
+| `GET` | `/api/reports/age-groups?from=&to=` | Staff | Antall utlån i perioden, fordelt på aldersgruppe (3-6, 7-12, 13-18). Alder regnes ved `Loan.StartedAt`, ikke ved rapporttidspunktet |
+| `GET` | `/api/reports/popular-equipment` | Staff | Antall utlån per utstyr, over hele historikken, sortert synkende |
+| `GET` | `/api/reports/overdue-summary` | Staff | To tall: antall leveringer etter frist (`DaysLate > 0`) og antall uleverte lån (`Status` er `Overdue` eller `Lost`) |
 
 ## Ikke bygget i denne omgangen
 
-CRUD-laget bygget 2026-09-04 dekker kjerneflyten - kategori, utstyr, foresatt,
-barn og utlån (registrering og retur). Bevisst utelatt, og hvorfor:
+CRUD-laget bygget 2026-09-04 dekker kjerneflyten, og oppfølgingsarbeidsflyten
+(notater, utestengelse, kontaktforsøk, bekreftet tap/skade, automatisk
+forfall og rapportene) ble lagt til 2026-09-07. Det som gjenstår, og hvorfor:
 
 | Del | Hvorfor ikke nå |
 | --- | --- |
-| Notater (`Note`) | Ikke etterspurt for kjerneflyten; bygges sammen med oppfølgingsarbeidsflyten |
-| Utestengelse (`Ban`) | Samme - hører til oppfølging av forfalte lån, ikke registreringsflyten |
-| Kontaktforsøk (`ContactAttempt`) | Samme |
-| Bekreftet tap/skade (`mark-lost`) | Samme |
 | Bilde ved utlån og retur | Lagringsløsning for bilder er ikke valgt, se `04-databasedesign.md` |
-| Rapporter | Egen senere leveranse |
 | Rollebasert autorisasjon | Se `06-autentisering.md` - ingen rolle-claim finnes i tokenet ennå |
+| Utestengelseshistorikk som egen liste | `Borrower.Status` dekker det en fremtidig låntaker-detaljside trenger i første omgang (er låntakeren utestengt *nå*); historikken (tidligere, opphevede utestengelser) venter til den siden faktisk bygges |
 
 ## API-dokumentasjon
 
@@ -197,3 +213,19 @@ To reelle feil ble funnet og rettet mens dette laget ble bygget, se
 [ADR-0017](./adr/0017-global-exception-handler.md). En tredje, i
 `TestAuthHandler` selv, ble funnet og rettet da Staff↔Auth0-koblingen ble
 lagt til - se [ADR-0019](./adr/0019-staff-auth0-mapping.md).
+
+Rapportendepunktene spør mot hele `Loans`-tabellen, som er delt mellom alle
+tester og ikke isolert per test (se over) - og xUnit kjører forskjellige
+testklasser parallelt som standard. `Controllers/ReportsEndpointTests.cs`
+sammenligner derfor et rapportresultat før og etter at testen selv legger til
+én kjent rad, og forventer *minst* én økning i tallet, ikke nøyaktig én - en
+annen testklasse som registrerer et lån i samme sekund er forventet, ikke en
+feil. Der et resultat ikke kan påvirkes av andre tester i det hele tatt (en
+fersk, unik utstyrs-id, eller et datointervall langt utenfor "i dag") sjekkes
+den eksakte verdien i stedet.
+
+Den automatiske forfallsjobben (`OverdueLoanBackgroundService`) testes ikke
+ved å vente på at den faktisk kjører - det ville gjort testene trege og
+tidsavhengige. I stedet kaller `Controllers/OverdueLoanRefreshTests.cs` samme
+metode jobben selv bruker (`LoanService.RefreshOverdueLoansAsync`) direkte,
+med en klokke flyttet forbi fristen, se `07-testing.md`.

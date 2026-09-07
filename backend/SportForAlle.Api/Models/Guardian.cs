@@ -20,12 +20,22 @@ public partial class Guardian : AuditableEntity
     {
     }
 
-    public Guardian(string name, string email, string phone, IClock clock, Guid? createdByStaffId)
+    /// <param name="identityVerified">
+    /// True if staff visually confirmed this guardian's ID (name and date of
+    /// birth) in person at registration. This is the project's alternative to
+    /// storing a fødselsnummer - see docs/09-lover-og-regler.md - so it
+    /// records only that a check happened, never the document or number
+    /// itself. Optional: registration is not blocked by it, see business
+    /// discussion in docs/09-lover-og-regler.md.
+    /// </param>
+    public Guardian(
+        string name, string email, string phone, IClock clock, Guid? createdByStaffId, bool identityVerified = false)
         : base(clock, createdByStaffId)
     {
         Name = ValidateName(name);
         Email = ValidateEmail(email);
         Phone = ValidatePhone(phone);
+        IdentityVerifiedAt = identityVerified ? clock.UtcNow : null;
     }
 
     public string Name { get; private set; } = string.Empty;
@@ -33,6 +43,9 @@ public partial class Guardian : AuditableEntity
     public string Email { get; private set; } = string.Empty;
 
     public string Phone { get; private set; } = string.Empty;
+
+    /// <summary>Null if staff have not yet visually confirmed this guardian's ID in person.</summary>
+    public DateTimeOffset? IdentityVerifiedAt { get; private set; }
 
     public IReadOnlyCollection<Borrower> Borrowers => _borrowers;
 

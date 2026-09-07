@@ -20,4 +20,16 @@ public class EquipmentCategoriesController(EquipmentCategoryService service) : C
         EquipmentCategoryResponse response = await service.CreateAsync(request, cancellationToken);
         return StatusCode(StatusCodes.Status201Created, response);
     }
+
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<EquipmentCategoryResponse>> RenameAsync(
+        Guid id, RenameEquipmentCategoryRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.RenameAsync(id, request, cancellationToken));
+
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await service.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
 }
