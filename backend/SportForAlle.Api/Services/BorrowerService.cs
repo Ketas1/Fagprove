@@ -81,6 +81,25 @@ public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserCo
         return BorrowerMapper.ToResponse(borrower, guardian.Name);
     }
 
+    /// <summary>
+    /// The borrower's current active ban, if any. 404 both when the borrower
+    /// doesn't exist and when they exist but aren't currently banned - there
+    /// is no "current ban" resource to return either way.
+    /// </summary>
+    public async Task<BanResponse> GetCurrentBanAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await dbContext.Borrowers
+            .Include(b => b.Bans)
+            .FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        Ban? currentBan = borrower.Bans.SingleOrDefault(ban => ban.IsActive);
+
+        return currentBan is null
+            ? throw new NotFoundException("Låntakeren er ikke utestengt.")
+            : BanMapper.ToResponse(currentBan);
+    }
+
     /// <summary>Business rule 2 in docs/03-domenemodell.md: a banned borrower cannot register a new loan.</summary>
     public async Task<BanResponse> BanAsync(Guid id, BanBorrowerRequest request, CancellationToken cancellationToken)
     {

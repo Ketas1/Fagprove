@@ -31,6 +31,10 @@ public class BorrowersController(BorrowerService service) : ControllerBase
         Guid id, UpdateBorrowerRequest request, CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(id, request, cancellationToken));
 
+    [HttpGet("{id:guid}/ban")]
+    public async Task<ActionResult<BanResponse>> GetCurrentBanAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.GetCurrentBanAsync(id, cancellationToken));
+
     [HttpPost("{id:guid}/ban")]
     public async Task<ActionResult<BanResponse>> BanAsync(
         Guid id, BanBorrowerRequest request, CancellationToken cancellationToken) =>

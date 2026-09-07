@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
-import { NotBuiltYetBadge } from '@/components/not-built-yet';
 import { RowActionsMenu } from '@/components/row-actions-menu';
 import { StatusBadge } from '@/components/status-badge';
 import { SearchInput } from '@/components/ui/search-input';
@@ -154,11 +153,7 @@ export function LoansExplorer({
             <TableHead className="w-[12%]">Startdato</TableHead>
             <TableHead className="w-[12%]">Forventet retur</TableHead>
             <TableHead className="w-[13%]">Status</TableHead>
-            <TableHead className="w-[17%]">
-              <div className="flex items-center gap-1.5">
-                Kontaktstatus <NotBuiltYetBadge reason="Kontaktforsøk-logging finnes ikke i API-et ennå." />
-              </div>
-            </TableHead>
+            <TableHead className="w-[17%]">Kontaktstatus</TableHead>
             <TableHead className="w-[8%]">
               <span className="sr-only">Handlinger</span>
             </TableHead>
@@ -201,7 +196,7 @@ export function LoansExplorer({
                 <TableCell>
                   <StatusBadge tone={tone}>{label}</StatusBadge>
                 </TableCell>
-                <TableCell className="text-muted-foreground">–</TableCell>
+                <TableCell className="text-[12.5px] text-muted-foreground">Se detaljer</TableCell>
                 <TableCell onClick={(event) => event.stopPropagation()}>
                   <RowActionsMenu openHref={detailHref} label={`Handlinger for ${loan.borrowerName}`} />
                 </TableCell>

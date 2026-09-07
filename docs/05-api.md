@@ -132,6 +132,7 @@ registreres. Ingen `PUT`/`DELETE` ennå - ikke etterspurt for denne omgangen.
 | `GET` | `/api/borrowers/{id}` | Staff | Detaljer. `404` hvis barnet ikke finnes |
 | `POST` | `/api/borrowers` | Staff | Registrer barn. Krever enten `guardianId` (kobler en eksisterende foresatt - for eksempel et søsken) eller `newGuardian` (oppretter en foresatt i samme kall), aldri begge eller ingen (`400`). `422 BorrowerOutsideAgeRange` hvis fødselsdatoen gir en alder utenfor 3-18 år |
 | `PUT` | `/api/borrowers/{id}` | Staff | Endre navn. Fødselsdato og foresatt kan ikke endres etter registrering |
+| `GET` | `/api/borrowers/{id}/ban` | Staff | Låntakerens aktive utestengelse. `404` både hvis låntakeren ikke finnes og hvis de ikke er utestengt - det finnes ingen "aktiv utestengelse"-ressurs i noen av tilfellene |
 | `POST` | `/api/borrowers/{id}/ban` | Staff | Utesteng låntakeren, med årsak. `409 BorrowerAlreadyBanned` hvis allerede utestengt |
 | `POST` | `/api/borrowers/{id}/ban/fee-paid` | Staff | Registrer at gebyret er betalt i butikken. `409 BorrowerNotBanned` hvis låntakeren ikke er utestengt |
 | `DELETE` | `/api/borrowers/{id}/ban` | Staff | Opphev utestengelsen. `409 BorrowerNotBanned` hvis ikke utestengt, `409 BanFeeNotPaid` hvis gebyret ikke er registrert betalt ennå - se forretningsregel 8 |

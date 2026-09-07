@@ -162,6 +162,32 @@ public class BorrowersEndpointTests(WebApplicationFactory<Program> factory)
     }
 
     [Fact]
+    public async Task GetCurrentBan_returns_the_active_ban_for_a_banned_borrower()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        await client.PostAsJsonAsync($"/api/borrowers/{borrowerId}/ban", new { Reason = "Gjentatte forsene leveringer." });
+
+        BanPayload? ban = await client.GetFromJsonAsync<BanPayload>($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.True(ban?.IsActive);
+        Assert.Equal("Gjentatte forsene leveringer.", ban?.Reason);
+    }
+
+    [Fact]
+    public async Task GetCurrentBan_returns_404_for_a_borrower_that_is_not_banned()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+
+        HttpResponseMessage response = await client.GetAsync($"/api/borrowers/{borrowerId}/ban");
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task Ban_rejects_a_borrower_that_is_already_banned_with_409()
     {
         await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
@@ -251,7 +277,7 @@ public class BorrowersEndpointTests(WebApplicationFactory<Program> factory)
 
     private sealed record BorrowerPayload(Guid Id, string Name, Guid GuardianId, string GuardianName, string Status);
 
-    private sealed record BanPayload(Guid Id, bool IsActive);
+    private sealed record BanPayload(Guid Id, string Reason, bool IsActive);
 
     private sealed record NotePayload(Guid Id, string Text);
 }

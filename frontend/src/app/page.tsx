@@ -1,11 +1,17 @@
 import { redirect } from 'next/navigation';
+import { AlertTriangle } from 'lucide-react';
 import { auth0 } from '@/lib/auth0';
 import { Button } from '@/components/ui/button';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ authError?: string }>;
+}) {
   const session = await auth0.getSession();
+  const { authError } = await searchParams;
 
   if (session) {
     redirect('/dashboard');
@@ -36,6 +42,17 @@ export default async function Home() {
           oversikten, registrere utlån og følge opp forfalte lån.
         </p>
       </div>
+
+      {authError && (
+        <div className="flex max-w-sm gap-2.5 rounded-lg bg-status-danger-bg p-3 text-left text-status-danger-fg">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <div className="text-[12.5px] leading-relaxed">
+            <p className="font-medium">Innlogging feilet</p>
+            <p>{authError}</p>
+          </div>
+        </div>
+      )}
+
       <Button nativeButton={false} render={<a href="/auth/login">Logg inn</a>} />
       <p className="text-[11.5px] text-muted-foreground">
         Sport For Alle AS · utlånsordning i samarbeid med kommunen

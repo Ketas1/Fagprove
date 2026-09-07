@@ -217,7 +217,10 @@ til" betyr `bunx shadcn@latest add <navn>`.
 | Blokkert-varsel, sen-retur-varsel | Egen liten komponent (ikke shadcn `Alert`) | Bygget inline i `new-loan-dialog.tsx`/`register-return-dialog.tsx` med statusfargene. Teksten kommer direkte fra API-ets `ProblemDetails.detail` (se `docs/05-api.md`), ikke hardkodet i frontend |
 | Steg-indikator (Aktiv → Forfalt → Levert) | **Ikke bygget - forenklet til `StatusBadge`** | Lån-detaljsiden viser bare statusmerkelappen, ikke den visuelle stegvisningen fra designet. Verdt å bygge som egen komponent senere hvis stegvisningen vurderes viktig nok til å forsvare arbeidet |
 | Bilde-opplasting (før/ved utlevering og retur) | Egen komponent, kun visuell | Vises som en stiplet boks tagget "Ikke bygget ennå" - se GDPR-kravet i `09-lover-og-regler.md` om at det er utstyret, aldri barnet, som skal fotograferes, når opplasting faktisk bygges |
-| Kommunikasjonslogg / hendelseslinje | Egen komponent | Vises som en forklarende tekst tagget "Ikke bygget ennå" i stedet for en tom liste, siden det ikke finnes data å liste opp |
+| Kommunikasjonslogg / hendelseslinje | `LoanContactAttemptsSection` (`frontend/src/components/loans/loan-contact-attempts-section.tsx`) | Bygget 2026-09-07 - liste over kontaktforsøk (metode, resultat, tidspunkt) og et skjema (metode-`Select` + resultat-`Textarea`) for å logge et nytt, koblet inn på lån-detaljsiden. Erstatter det som tidligere var en "Ikke bygget ennå"-plassholder |
+| Utestengelse (ban) på låntaker-detaljsiden | `BorrowerBanSection` (`frontend/src/components/borrowers/borrower-ban-section.tsx`) | Bygget 2026-09-07 - viser årsak og gebyrstatus når utestengt, med knapper for "Registrer gebyr betalt" og "Opphev utestengelse" (sistnevnte deaktivert til gebyret er betalt, se forretningsregel 8). Når aktiv: en "Utesteng låntaker"-knapp åpner en liten dialog med årsak-`Textarea` |
+| Notater på låntaker-detaljsiden | `BorrowerNotesSection` (`frontend/src/components/borrowers/borrower-notes-section.tsx`) | Bygget 2026-09-07 - liste over notater (nyeste først) og et enkelt skjema for å legge til et nytt. Plassholderteksten i skjemaet peker til "saklig og faktabasert"-retningslinjen i `09-lover-og-regler.md` |
+| Bekreft tap/skade | `MarkLostButton` (`frontend/src/components/loans/mark-lost-button.tsx`) | Bygget 2026-09-07 - egen bekreftelsesdialog før kallet gjøres, siden overgangen er terminal og ikke kan angres (setter lånet `Lost` og utstyret `WrittenOff`) |
 
 ### Nedtrekksfelt (`Select`): plassering under trigger, ikke ved valgt element
 
@@ -251,6 +254,31 @@ cellen - nødvendig fordi en tabellcelle med fast layout ellers ikke lar
 underliggende blokkelementer krympe under egen innholdsbredde) slik at et
 langt navn kuttes med "…" i stedet for å presse resten av raden ut av
 bredden.
+
+### Feilsider og innloggingsfeil
+
+Bygget 2026-09-07, tre stykker, samme visuelle stil som forsiden
+(`app/page.tsx`):
+
+- **`app/not-found.tsx`** - Next.js' `not-found`-konvensjon (bekreftet mot
+  `node_modules/next/dist/docs`). Fanger både eksplisitte `notFound()`-kall
+  fra en side og enhver URL som ikke matcher noen rute. Lenken går til
+  `/dashboard` hvis innlogget, ellers `/` - sjekket med `auth0.getSession()`.
+- **`app/error.tsx`** - React-feilgrense for uventede kjøretidsfeil.
+  `retry`-propen er denne Next.js-versjonens navn (stabilt fra 16.3.0, het
+  `reset` før) - bekreftet mot dokumentasjonen i stedet for antatt, siden
+  `frontend/AGENTS.md` advarer om at slikt kan avvike fra treningsdata.
+- **Innloggingsfeil** - undersøkt i selve SDK-koden
+  (`node_modules/@auth0/nextjs-auth0/dist/server/auth-client.js`), ikke
+  antatt: SDK-ets egen standard-`onCallback` returnerer ren tekst
+  (`new NextResponse(error.message, { status: 500 })`) direkte fra
+  callback-ruten ved en mislykket innlogging (avvist samtykke, feilkonfigurert
+  Auth0-tenant, feil i token-utveksling) - dette skjer *før* noe React
+  rendres, så verken `error.tsx` eller `not-found.tsx` fanger det. Fikset ved
+  å gi `Auth0Client` (`lib/auth0.ts`) en egen `onCallback` som beholder
+  standardoppførselen ved suksess, men omdirigerer til `/?authError=<melding>`
+  ved feil, slik at `app/page.tsx` kan vise den i appens egen stil i stedet
+  for en rå tekstrespons.
 
 ## Ikonografi
 

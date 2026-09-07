@@ -2,12 +2,16 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { BorrowerBanSection } from '@/components/borrowers/borrower-ban-section';
+import { BorrowerNotesSection } from '@/components/borrowers/borrower-notes-section';
 import { StatusBadge } from '@/components/status-badge';
 import { BackendError, fetchBackend } from '@/lib/backend';
 import { calculateAge } from '@/lib/age';
 import { borrowerStatusInfo } from '@/lib/status-labels';
+import type { Ban } from '@/types/ban';
 import type { Borrower } from '@/types/borrower';
 import type { Guardian } from '@/types/guardian';
+import type { Note } from '@/types/note';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,8 +30,14 @@ export default async function BorrowerDetailPage({ params }: { params: Promise<{
   }
 
   // Borrower only carries `guardianName` - contact details live on the
-  // Guardian record itself, fetched separately.
-  const guardian = await fetchBackend<Guardian>(['guardians', borrower.guardianId]);
+  // Guardian record itself, fetched separately. The current ban is only
+  // fetched when actually banned - GET .../ban 404s otherwise, since there
+  // is no "current ban" resource for an active borrower.
+  const [guardian, notes, currentBan] = await Promise.all([
+    fetchBackend<Guardian>(['guardians', borrower.guardianId]),
+    fetchBackend<Note[]>(['borrowers', id, 'notes']),
+    borrower.status === 'Banned' ? fetchBackend<Ban>(['borrowers', id, 'ban']) : Promise.resolve(null),
+  ]);
 
   const { label: statusLabel, tone: statusTone } = borrowerStatusInfo(borrower.status);
   const age = calculateAge(borrower.dateOfBirth, new Date());
@@ -78,6 +88,11 @@ export default async function BorrowerDetailPage({ params }: { params: Promise<{
             <Field label="E-post" value={guardian.email} />
           </CardContent>
         </Card>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <BorrowerBanSection borrowerId={id} status={borrower.status} initialBan={currentBan} />
+        <BorrowerNotesSection borrowerId={id} initialNotes={notes} />
       </div>
     </div>
   );

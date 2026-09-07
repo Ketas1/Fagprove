@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Camera, Mail, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { NotBuiltYetBadge, NotBuiltYetButton } from '@/components/not-built-yet';
+import { LoanContactAttemptsSection } from '@/components/loans/loan-contact-attempts-section';
+import { MarkLostButton } from '@/components/loans/mark-lost-button';
+import { NotBuiltYetBadge } from '@/components/not-built-yet';
 import { StatusBadge } from '@/components/status-badge';
 import { RegisterReturnDialog } from '@/components/loans/register-return-dialog';
 import { BackendError, fetchBackend } from '@/lib/backend';
@@ -10,6 +12,7 @@ import { calculateAge } from '@/lib/age';
 import { effectiveLoanStatus } from '@/lib/loan-status';
 import { borrowerStatusInfo, equipmentConditionLabel, equipmentStatusInfo, loanStatusInfo } from '@/lib/status-labels';
 import type { Borrower } from '@/types/borrower';
+import type { ContactAttempt } from '@/types/contact-attempt';
 import type { Equipment } from '@/types/equipment';
 import type { Guardian } from '@/types/guardian';
 import type { Loan } from '@/types/loan';
@@ -34,9 +37,10 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
     throw error;
   }
 
-  const [borrower, equipment] = await Promise.all([
+  const [borrower, equipment, contactAttempts] = await Promise.all([
     fetchBackend<Borrower>(['borrowers', loan.borrowerId]),
     fetchBackend<Equipment>(['equipment', loan.equipmentId]),
+    fetchBackend<ContactAttempt[]>(['loans', id, 'contact-attempts']),
   ]);
   const guardian = await fetchBackend<Guardian>(['guardians', borrower.guardianId]);
 
@@ -73,16 +77,16 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <NotBuiltYetButton reason="Kontaktforsøk-logging finnes ikke i API-et ennå.">
-            Logg kontaktforsøk
-          </NotBuiltYetButton>
           {canReturn && (
-            <RegisterReturnDialog
-              loanId={loan.id}
-              equipmentName={loan.equipmentName}
-              isLate={status === 'Overdue'}
-              daysOverdue={daysOverdue}
-            />
+            <>
+              <MarkLostButton loanId={loan.id} />
+              <RegisterReturnDialog
+                loanId={loan.id}
+                equipmentName={loan.equipmentName}
+                isLate={status === 'Overdue'}
+                daysOverdue={daysOverdue}
+              />
+            </>
           )}
         </div>
       </div>
@@ -120,15 +124,7 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
-              <CardTitle>Kommunikasjon med foresatt</CardTitle>
-              <NotBuiltYetBadge reason="Kontaktforsøk-logging finnes ikke i API-et ennå." />
-            </CardHeader>
-            <CardContent className="py-6 text-center text-sm text-muted-foreground">
-              Ingen kontaktforsøk kan vises her ennå - funksjonen mangler et endepunkt på backend.
-            </CardContent>
-          </Card>
+          <LoanContactAttemptsSection loanId={loan.id} initialAttempts={contactAttempts} />
         </div>
 
         <div className="flex flex-col gap-5">
