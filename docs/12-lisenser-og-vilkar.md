@@ -82,6 +82,10 @@ Tre grunner:
 | tw-animate-css | 1.4.0 | MIT | |
 | cmdk | 1.1.1 | MIT | |
 | react-day-picker | 10.0.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/react-day-picker/LICENSE` og `package.json` |
+| recharts | 3.10.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/recharts/LICENSE` og `package.json` |
+| jspdf | 4.2.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/jspdf/LICENSE` og `package.json` |
+| jspdf-autotable | 5.0.8 | MIT | Bekreftet 2026-09-07 mot `node_modules/jspdf-autotable/LICENSE.txt` og `package.json` |
+| write-excel-file | 4.1.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/write-excel-file/LICENSE` og `package.json`. Importeres som `write-excel-file/browser` - pakken har ingen rot-eksport |
 | Bun | 1.3.6 | MIT | |
 
 > shadcn er ikke ett bibliotek som installeres og importeres, men en CLI som

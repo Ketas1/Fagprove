@@ -110,15 +110,36 @@ måned" eller hvilket utstyr som er mest populært.
 
 ### Hvordan systemet løser det
 
-En rapportside som regner ut og visualiserer:
+En rapportside med **to** rapporter. Begge viser de samme fem tallene, og de
+fire underradene summerer seg alltid til totalen:
 
-- alle utlån over en valgt periode
-- totalt antall utlån fordelt på aldersgruppe
-- hvilket utstyr som er mest utlånt
-- antall forsene og uleverte leveringer
+| Rad | Hva den teller |
+| --- | --- |
+| Utlån totalt | Alle utlån registrert i perioden |
+| Levert i tide | Levert innen fristen |
+| Levert for sent | Levert etter fristen |
+| Ikke levert | Forfalt eller bekreftet tapt |
+| Fortsatt aktive | Løper fortsatt, og har ikke forfalt |
+
+1. **Utlån i perioden** - de fem tallene for perioden den ansatte velger.
+2. **Utlån per aldersgruppe** - de samme fem tallene fordelt på 3-7, 8-12 og
+   13-18 år.
+
+I tillegg vises utviklingen over tid som et søylediagram: antall utlån per dag,
+uke eller måned. Begge rapportene kan lastes ned som Excel eller PDF, slik at
+kommunen får tallene i et format de kan arkivere og regne videre på.
+
+**Mest utlånte utstyr var opprinnelig med i denne listen, men er tatt ut.**
+Oppdragsgiver trenger å vite hvor mange utlån som er gjort, ikke hva som ble
+lånt ut. Endringen ble avklart 2026-09-07.
 
 Rapportene er aggregerte. De viser tall og trender, ikke enkeltpersoner - se
-[`09-lover-og-regler.md`](./09-lover-og-regler.md).
+[`09-lover-og-regler.md`](./09-lover-og-regler.md). Eksportfilene inneholder av
+samme grunn bare disse tallene: ingen navn, ingen id-er, ingen enkeltlån.
+
+Rapportsiden er bygget 2026-09-07 (`/dashboard/reports`), koblet til de ekte
+endepunktene. Se [`05-api.md`](./05-api.md) og
+[ADR-0023](./adr/0023-rapporteksport.md) for hvordan eksporten fungerer.
 
 ## Avgrensninger
 

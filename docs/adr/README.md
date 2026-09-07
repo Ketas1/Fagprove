@@ -56,3 +56,4 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0020](./0020-server-lesing-klient-skriving.md) | Server-komponenter leser direkte fra backend, klientkomponenter skriver gjennom proxyen | Akseptert |
 | [0021](./0021-hierarkiske-utstyrskategorier.md) | Hierarkiske utstyrskategorier, uhåndhevet dybde, ett-siders trevisning | Akseptert |
 | [0022](./0022-emailjs-server-side.md) | Oppfølgings-e-post sendes fra backend, ikke nettleseren | Akseptert |
+| [0023](./0023-rapporteksport.md) | Rapporteksport lages i nettleseren, og inneholder bare aggregerte tall | Akseptert |

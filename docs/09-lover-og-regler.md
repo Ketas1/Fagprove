@@ -115,7 +115,7 @@ Vurdering og tiltak:
 - Årsaken skal alltid være synlig for den ansatte, slik at avgjørelsen kan
   forklares til foresatt.
 - Markeringen "upålitelig" skal presenteres sammen med tallgrunnlaget (antall
-  forsene leveringer), ikke som en frittstående merkelapp.
+  forsinkede leveringer), ikke som en frittstående merkelapp.
 
 ## Lagringsbegrensning og sletting
 

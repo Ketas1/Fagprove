@@ -42,7 +42,7 @@ erDiagram
 | Felt | Type | Merknad |
 | --- | --- | --- |
 | `DateOfBirth` | dato | Brukes til aldersgruppe i rapporter og til å sjekke 3-18 år. Fødselsnummer lagres aldri. |
-| `LateReturnCount` | heltall | Antall ganger levert etter frist. Økes ved hver forsene retur. |
+| `LateReturnCount` | heltall | Antall ganger levert etter frist. Økes ved hver forsinket retur. |
 | `IsUnreliable` | boolsk | Markering av at låntakeren har levert for sent tidligere. |
 | `GuardianId` | fremmednøkkel | Påkrevd. Et barn uten foresatt kan ikke låne. |
 
@@ -205,16 +205,40 @@ er de viktigste å enhetsteste.
 
 ## Rapportering
 
+Det er **to** rapporter. Begge bygger på de samme fem tallene:
+
+| Rad | Grunnlag |
+| --- | --- |
+| Utlån totalt | `Loan.StartedAt` innenfor perioden |
+| Levert i tide | `Loan.Status` er `Returned` og `Loan.DaysLate` er 0 |
+| Levert for sent | `Loan.Status` er `Returned` og `Loan.DaysLate > 0` |
+| Ikke levert | `Loan.Status` er `Overdue` eller `Lost` |
+| Fortsatt aktive | `Loan.Status` er `Active` |
+
 | Rapport | Grunnlag |
 | --- | --- |
-| Antall utlån i en periode | `Loan.StartedAt` innenfor perioden |
-| Utlån fordelt på aldersgruppe | `Borrower.DateOfBirth` mot `Loan.StartedAt` |
-| Mest utlånte utstyr | Antall `Loan` per `Equipment` og per `EquipmentCategory` |
-| Forsene leveringer | `Loan.DaysLate > 0` |
-| Uleverte lån | `Loan.Status` er `Overdue` eller `Lost` |
+| Utlån i perioden | De fem tallene over, for hele perioden |
+| Utlån per aldersgruppe | De samme fem tallene, fordelt med `Borrower.DateOfBirth` mot `Loan.StartedAt` |
 
-Aldersgruppene er **3-6 år**, **7-12 år** og **13-18 år**. Inndelingen er avklart
-med oppdragsgiver og skal brukes uendret i rapportene.
+**Alle fem tallene teller lån med `StartedAt` i perioden.** Det er det som gjør
+at de fire underradene alltid summerer seg nøyaktig til totalen: `LoanStatus`
+har akkurat disse fire verdiene, så ingen lån faller utenfor. Alternativet -
+å telle lån som ble *levert* for sent i perioden - blander to forskjellige sett
+med lån, og da slutter tallene å gå opp.
+
+I tillegg vises antall utlån per dag, uke eller måned, som grunnlag for
+søylediagrammet på rapportsiden. Det er en oppdeling av det første tallet, ikke
+en egen rapport.
+
+**Mest utlånte utstyr er ikke lenger en rapport.** Den sto her tidligere, men
+ble tatt ut 2026-09-07: oppdragsgiver trenger antall utlån, ikke hva som ble
+lånt ut. Endepunktet `GET /api/reports/popular-equipment` finnes fortsatt og er
+testet, men ingenting viser det.
+
+Aldersgruppene er **3-7 år**, **8-12 år** og **13-18 år**. Inndelingen er avklart
+med oppdragsgiver og skal brukes uendret i rapportene. (Tidligere versjoner av
+denne dokumentasjonen oppga 3-6 / 7-12 / 13-18. Det var en feil, rettet
+2026-09-07.)
 
 Alder regnes på utlånstidspunktet (`Loan.StartedAt`), ikke på rapporttidspunktet.
 Et barn som fyller 13 år etter at lånet ble registrert telles altså i gruppen det

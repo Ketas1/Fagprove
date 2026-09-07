@@ -157,11 +157,30 @@ A **banned** borrower may not. Keep those two concepts separate.
 
 ### Reporting
 
-The municipality funds the scheme and needs evidence it works. Reports cover:
-loans over a period, total loans broken down by age group, most-borrowed
-equipment, and counts of late and unreturned loans.
+The municipality funds the scheme and needs evidence it works. There are
+**two** reports, and both show the same five figures:
 
-Age groups are fixed: **3-6**, **7-12**, **13-18**. Age is calculated at
+| Row | Rule |
+| --- | --- |
+| Loans total | `StartedAt` within the period |
+| Returned on time | `Status == Returned && DaysLate == 0` |
+| Returned late | `Status == Returned && DaysLate > 0` |
+| Not returned | `Status == Overdue \|\| Status == Lost` |
+| Still active | `Status == Active` |
+
+1. **Period totals** - the five figures for the selected period.
+2. **By age group** - the same five figures split across the age groups.
+
+Every figure counts loans whose `StartedAt` falls in the period, so the four
+sub-rows always sum to the total. `LoanStatus` has exactly those four values,
+so no loan goes uncounted. The reports page additionally shows a loan count
+per day/week/month for the trend chart.
+
+**Most-borrowed equipment is not a report.** The customer needs how many loans
+were made, not what was borrowed. `GET /api/reports/popular-equipment` still
+exists and is tested, but nothing surfaces it.
+
+Age groups are fixed: **3-7**, **8-12**, **13-18**. Age is calculated at
 `Loan.StartedAt`, not at report time, so historical figures do not shift as
 children get older.
 

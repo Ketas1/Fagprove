@@ -62,6 +62,7 @@ oversettelsene.
 | [11-utviklingsmiljo.md](./11-utviklingsmiljo.md) | Prosjektoppsett, teknologistack, filstruktur, Docker og CI | Ferdig |
 | [12-lisenser-og-vilkar.md](./12-lisenser-og-vilkar.md) | Pakkelisenser og vilkår for eksterne tjenester | Påbegynt |
 | [13-frontend-designsystem.md](./13-frontend-designsystem.md) | Typografi, farger, komponenter og tilstander - regelsettet bak alle sider | Ferdig |
+| [14-utviklerhandbok.md](./14-utviklerhandbok.md) | Inngangsport for den som overtar: status per lag, kjente feller, veien til drift og mulige neste steg | Ferdig |
 | [adr/](./adr/) | Architecture Decision Records - alle tekniske valg | Løpende |
 | [arbeidslogg.md](./arbeidslogg.md) | Daglig arbeidslogg - grunnlag for sluttrapporten | Løpende |
 

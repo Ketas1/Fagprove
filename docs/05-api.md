@@ -173,12 +173,44 @@ av seg selv.
 Alle rapportendepunktene returnerer kun aggregerte tall, aldri enkeltlån eller
 -låntakere, se `09-lover-og-regler.md`.
 
+De **to** rapportene (se `03-domenemodell.md`) deler samme `LoanFigures`-objekt
+med fem tall. Alle fem teller lån med `StartedAt` i perioden, så de fire
+underradene summerer seg alltid til `totalLoans`:
+
+```jsonc
+{
+  "totalLoans": 412,      // registrert i perioden
+  "returnedOnTime": 305,  // Status = Returned, DaysLate = 0
+  "returnedLate": 37,     // Status = Returned, DaysLate > 0
+  "notReturned": 6,       // Status = Overdue eller Lost
+  "stillActive": 64       // Status = Active
+}
+```
+
 | Metode | Rute | Rolle | Beskrivelse |
 | --- | --- | --- | --- |
-| `GET` | `/api/reports/loans?from=&to=` | Staff | Antall utlån i perioden (`from`/`to` som `yyyy-MM-dd`, begge påkrevd, `to` kan ikke være før `from`) |
-| `GET` | `/api/reports/age-groups?from=&to=` | Staff | Antall utlån i perioden, fordelt på aldersgruppe (3-6, 7-12, 13-18). Alder regnes ved `Loan.StartedAt`, ikke ved rapporttidspunktet |
-| `GET` | `/api/reports/popular-equipment` | Staff | Antall utlån per utstyr, over hele historikken, sortert synkende |
-| `GET` | `/api/reports/overdue-summary` | Staff | To tall: antall leveringer etter frist (`DaysLate > 0`) og antall uleverte lån (`Status` er `Overdue` eller `Lost`) |
+| `GET` | `/api/reports/loans?from=&to=` | Staff | **Rapport 1 av 2.** De fem tallene for perioden |
+| `GET` | `/api/reports/age-groups?from=&to=` | Staff | **Rapport 2 av 2.** De samme fem tallene per aldersgruppe (3-7, 8-12, 13-18). Alder regnes ved `Loan.StartedAt`, ikke ved rapporttidspunktet |
+| `GET` | `/api/reports/timeline?from=&to=&interval=` | Staff | Antall utlån per `Day`, `Week` eller `Month` - grunnlaget for søylediagrammet. `interval` er `Month` hvis den utelates |
+| `GET` | `/api/reports/popular-equipment` | Staff | Antall utlån per utstyr, hele historikken, sortert synkende. **Ikke i bruk** av noe grensesnitt, se `03-domenemodell.md` |
+
+**`from` og `to` er valgfrie** på alle tre periodeendepunktene (`yyyy-MM-dd`).
+Utelates de, dekker svaret hele historikken, og `from`/`to` i responsen er
+`null`. Det er slik «Hele historikken» på rapportsiden slipper å finne på en
+startdato. Oppgis begge, kan `to` ikke være før `from` - det gir `400`.
+
+`timeline` fyller inn tomme bøtter med `count: 0` i stedet for å hoppe over
+dem, slik at en stille måned vises som et hull i diagrammet framfor å
+forsvinne. En uke starter på mandag. Et intervall som ville gitt mer enn **400
+bøtter** (for eksempel `Day` over hele historikken) avvises med `400` framfor å
+returnere et svar ingen kan tegne; rapportsiden fanger den feilen og ber den
+ansatte velge en grovere oppdeling.
+
+> **Fjernet 2026-09-07:** `GET /api/reports/overdue-summary`. De to tallene den
+> ga finnes nå som `returnedLate` og `notReturned` på rapport 1, forankret i
+> perioden. Den gamle varianten talte over hele historikken uten datofilter, så
+> å beholde begge ville gitt to endepunkter som svarer forskjellig på samme
+> spørsmål. En integrasjonstest sjekker at ruten faktisk gir `404`.
 
 ## Ikke bygget i denne omgangen
 

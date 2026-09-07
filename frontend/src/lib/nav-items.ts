@@ -1,6 +1,6 @@
-import { FileText, Home, Package, ShieldCheck, Tag, Users } from 'lucide-react';
+import { ChartColumn, FileText, Home, Package, ShieldCheck, Tag, Users } from 'lucide-react';
 
-/// The six main sections plus the audit log, in the order the design's
+/// The main sections plus the audit log, in the order the design's
 /// sidebar shows them. Shared between the sidebar nav and the header title
 /// so both read the current section from the same list.
 export const navItems = [
@@ -8,6 +8,8 @@ export const navItems = [
   { href: '/dashboard/loans', label: 'Utlån', icon: Package },
   { href: '/dashboard/equipment', label: 'Utstyr', icon: Tag },
   { href: '/dashboard/borrowers', label: 'Barn og foresatte', icon: Users },
+  // Not one of the design's 15 artboards - see docs/13-frontend-designsystem.md.
+  { href: '/dashboard/reports', label: 'Rapporter', icon: ChartColumn },
   { href: '/dashboard/staff', label: 'Ansatte', icon: ShieldCheck },
   { href: '/dashboard/log', label: 'Logg', icon: FileText },
 ] as const;

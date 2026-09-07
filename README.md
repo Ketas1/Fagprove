@@ -9,8 +9,9 @@ Systemet dekker den daglige driften av en utlånsordning:
   forfalte lån
 - **Oppfølging** av forfalte lån, med automatisk oppdagelse av forfall,
   kontaktlogg mot foresatte og blokkering av nye utlån
-- **Rapporter** over antall utlån, fordeling på aldersgruppe, populært utstyr og
-  forsene leveringer
+- **Rapporter** over antall utlån i en periode og fordelt på aldersgruppe, hver
+  med levert i tide, levert for sent, ikke levert og fortsatt aktive - med
+  eksport til Excel og PDF
 
 ## Teknologi
 

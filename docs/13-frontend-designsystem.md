@@ -316,6 +316,43 @@ hvilke alternativer som ble vurdert. Mønsteret er bevisst enkelt:
 - Treets dybde er ikke begrenset i grensesnittet heller - det følger av at
   det ikke er begrenset i domenet (se ADR-0021), ikke en egen frontend-regel.
 
+## Rapportsiden (ikke i det opprinnelige designet)
+
+Designcanvaset har 15 skjermbilder, og **ingen av dem er en rapportside**.
+Siden (`app/dashboard/reports/page.tsx`, bygget 2026-09-07) er derfor satt
+sammen av tokens og komponenter som allerede fantes, på samme måte som
+kategoritreet over - ikke oversatt fra en fasit. Den som senere tegner et
+design for denne siden bør vite at rekkefølgen og inndelingen under er et valg,
+ikke noe som er godkjent visuelt.
+
+Oppbygging, ovenfra og ned:
+
+- **Filterkort.** Periode som `Select` (siste 30 dager / 6 måneder / 12
+  måneder / hele historikken / egendefinert), oppdeling som `Tabs`
+  (dag/uke/måned), og to `DatePicker` som bare vises ved egendefinert periode.
+  Alle valg skrives til URL-en og leses tilbake av server-komponenten, så en
+  rapport er en lenke som kan bokmerkes eller sendes videre - se
+  [ADR-0020](./adr/0020-server-lesing-klient-skriving.md).
+- **Fem nøkkeltallskort** på én rad, i leserekkefølge: Utlån totalt, Levert i
+  tide, Levert for sent, Ikke levert, Fortsatt aktive. De fire siste bruker
+  statusfargene (`success`, `warning`, `danger`, `info`) fra tabellen lenger
+  oppe, og viser sin andel av totalen under tallet.
+- **Søylediagram** over utvikling i perioden.
+- **Tabell per aldersgruppe** med de samme fem tallene og en `Sum`-rad, slik at
+  leseren kan kontrollere at tallene går opp.
+
+| Komponent | Grunnlag | Merknad |
+| --- | --- | --- |
+| Søylediagram | `recharts` (ny avhengighet, MIT - se `12-lisenser-og-vilkar.md`) | `components/reports/loan-trend-chart.tsx`. Søylene bruker `var(--primary)` og aksene `var(--muted-foreground)`, så diagrammet arver paletten i stedet for å ta med seg Recharts sine egne standardfarger. shadcn sin `chart`-innpakning ble **ikke** lagt til - den er bygget for Radix, og dette prosjektet bruker `@base-ui/react` (se ADR-0016), så komponenten er skrevet direkte mot Recharts |
+| Eksportknapp | `DropdownMenu` (finnes) | `components/reports/report-export-button.tsx` - «Last ned Excel» og «Last ned PDF». Begge filene lages i nettleseren av tall siden allerede har. Excel-fila har tre ark (Sammendrag, Aldersgrupper, Utvikling) med ekte tall- og datotyper; CSV ble prøvd først og forkastet fordi Excel gjorde om aldersgruppen «3-7» til en dato - se [ADR-0023](./adr/0023-rapporteksport.md) |
+
+**Feiltilstand som faktisk kan oppstå her:** en lang periode med oppdeling per
+dag overskrider API-ets grense på 400 søyler og gir `400`. Siden fanger den ene
+statusen spesifikt og viser «Perioden gir for mange søyler med denne
+oppdelingen» i diagramkortet, mens resten av rapporten fortsatt vises. Å bytte
+periode nullstiller samtidig oppdelingen til den som passer, slik at
+tilstanden er vanskelig å havne i ved vanlig bruk.
+
 ## Tilstander som ikke er designet ennå
 
 Disse manglet allerede da designet ble gjennomgått, og er ikke lagt til
