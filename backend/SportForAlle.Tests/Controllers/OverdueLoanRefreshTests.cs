@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Helpers;
 using SportForAlle.Api.Services;
@@ -65,7 +66,8 @@ public class OverdueLoanRefreshTests
         using IServiceScope scope = factory.Services.CreateScope();
         AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         CurrentUserContext currentUser = scope.ServiceProvider.GetRequiredService<CurrentUserContext>();
-        LoanService loanService = new(dbContext, clock, currentUser);
+        FollowUpEmailSender emailSender = scope.ServiceProvider.GetRequiredService<FollowUpEmailSender>();
+        LoanService loanService = new(dbContext, clock, currentUser, emailSender, NullLogger<LoanService>.Instance);
 
         return await loanService.RefreshOverdueLoansAsync(CancellationToken.None);
     }

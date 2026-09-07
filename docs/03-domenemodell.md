@@ -195,6 +195,9 @@ Reglene håndheves i domenelaget, ikke i grensesnittet.
 6. **Kontaktforsøk logges alltid** med dato, metode og resultat, slik at ansatte
    ser om foresatt allerede er kontaktet.
 7. **Forfall oppdages automatisk.** Ansatte skal aldri måtte sjekke manuelt.
+   Forfall regnes på kalenderdato, ikke eksakt klokkeslett - et lån med
+   forfallsdato i dag er først forfalt fra og med i morgen, se
+   [ADR-0011](./adr/0011-automatisk-forfall.md).
 8. **Opphevelse av utestengelse krever registrert gebyrbetaling.**
 
 Regel 2 og regel 7 er de to som løser hovedproblemet systemet er laget for, og

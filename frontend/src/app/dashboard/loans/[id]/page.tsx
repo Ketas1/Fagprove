@@ -124,7 +124,11 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
-          <LoanContactAttemptsSection loanId={loan.id} initialAttempts={contactAttempts} />
+          <LoanContactAttemptsSection
+            loanId={loan.id}
+            initialAttempts={contactAttempts}
+            isOverdue={status === 'Overdue'}
+          />
         </div>
 
         <div className="flex flex-col gap-5">

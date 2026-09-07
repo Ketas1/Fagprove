@@ -45,4 +45,9 @@ public class LoansController(LoanService service) : ControllerBase
     public async Task<ActionResult<IReadOnlyList<ContactAttemptResponse>>> GetContactAttemptsAsync(
         Guid id, CancellationToken cancellationToken) =>
         Ok(await service.GetContactAttemptsAsync(id, cancellationToken));
+
+    [HttpPost("{id:guid}/send-followup-email")]
+    public async Task<ActionResult<ContactAttemptResponse>> SendFollowUpEmailAsync(
+        Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.SendFollowUpEmailAsync(id, cancellationToken));
 }

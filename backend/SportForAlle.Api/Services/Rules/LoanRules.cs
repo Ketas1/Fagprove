@@ -42,4 +42,17 @@ public static class LoanRules
             throw new DomainConflictException("EquipmentNotAvailable", "Utstyret er ikke ledig.");
         }
     }
+
+    /// <summary>
+    /// The follow-up email exists to chase an overdue loan - sending it for
+    /// a loan that isn't overdue would be a false accusation to the
+    /// guardian, not just a wasted email.
+    /// </summary>
+    public static void EnsureLoanIsOverdue(Loan loan, IClock clock)
+    {
+        if (!loan.IsOverdueNow(clock))
+        {
+            throw new DomainConflictException("LoanNotOverdue", "Lånet er ikke forfalt.");
+        }
+    }
 }

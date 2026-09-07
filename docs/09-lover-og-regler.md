@@ -21,11 +21,22 @@ behandling av egne opplysninger.
 | Rolle | Hvem |
 | --- | --- |
 | Behandlingsansvarlig | Sport For Alle AS - bestemmer formål og midler for behandlingen. |
-| Databehandler | Auth0 (identitetshåndtering), og eventuell e-postleverandør. Krever databehandleravtale. |
+| Databehandler | Auth0 (identitetshåndtering) og EmailJS (oppfølgings-e-post til foresatt). Krever databehandleravtale med begge. |
 | Registrerte | Barn (låntakere), foresatte og ansatte. |
 
 Auth0 skal settes opp med **EU-region** slik at persondata om innloggede brukere
 lagres innenfor EU/EØS. Se [ADR-0006](./adr/0006-auth0.md).
+
+**EmailJS**, lagt til 2026-09-07 (se [ADR-0022](./adr/0022-emailjs-server-side.md)),
+publiserer en egen databehandleravtale
+(<https://www.emailjs.com/legal/data-protection-agreement/>), men hvor
+tjeneren/dataen faktisk befinner seg er **ikke bekreftet** - avklares med
+EmailJS og signeres før systemet driftes for reelle brukere, samme
+behandling som andre åpne punkter i dette dokumentet. Personopplysningene
+som faktisk sendes ut av systemet i én e-post er begrenset til det
+malen bruker: foresattes navn og e-post, barnets fornavn, utstyrsnavn og
+forfallsdato - ikke mer enn det som allerede er begrunnet i tabellen under
+"Dataminimering".
 
 ## Behandlingsgrunnlag
 
@@ -192,3 +203,5 @@ er utarbeidet og godkjent juridisk.
 5. Utestengelse settes av et menneske, ikke automatisk av systemet.
 6. Auth0 i EU-region.
 7. Definert lagringstid med sletting og anonymisering.
+8. Oppfølgings-e-post sendes fra backend, aldri fra nettleseren - EmailJS sin
+   hemmelige nøkkel eksponeres da aldri i klientkode.

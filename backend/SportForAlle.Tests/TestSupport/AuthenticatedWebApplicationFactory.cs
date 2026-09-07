@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -24,7 +25,15 @@ namespace SportForAlle.Tests.TestSupport;
 /// Staff row created by another test running against the same shared
 /// database.
 /// </param>
-public class AuthenticatedWebApplicationFactory<TEntryPoint>(bool seedLinkedStaff = true, string? subject = null)
+/// <param name="emailJsStatusCode">
+/// Status code the fake "EmailJs" named <see cref="HttpClient"/> returns for
+/// every request - defaults to success, so a test that doesn't care about
+/// email sending still never reaches the real API. Pass a failure code (for
+/// example <see cref="HttpStatusCode.BadRequest"/>) to exercise the
+/// EmailSendFailed path.
+/// </param>
+public class AuthenticatedWebApplicationFactory<TEntryPoint>(
+    bool seedLinkedStaff = true, string? subject = null, HttpStatusCode emailJsStatusCode = HttpStatusCode.OK)
     : WebApplicationFactory<TEntryPoint>
     where TEntryPoint : class
 {
@@ -43,6 +52,14 @@ public class AuthenticatedWebApplicationFactory<TEntryPoint>(bool seedLinkedStaf
                         options.Subject = subject;
                     }
                 });
+
+            // Re-registers the "EmailJs" named client's primary handler - this adds
+            // to Program.cs's AddHttpClient("EmailJs") call rather than replacing
+            // it, but the primary handler set here wins, so no request from this
+            // named client ever reaches the real network in a test.
+            services
+                .AddHttpClient("EmailJs")
+                .ConfigurePrimaryHttpMessageHandler(() => new FakeHttpMessageHandler(emailJsStatusCode));
         });
     }
 }

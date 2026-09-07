@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using SportForAlle.Api.Data;
 using SportForAlle.Api.Dtos.Loans;
 using SportForAlle.Api.Helpers;
@@ -134,10 +135,11 @@ public class ReportsEndpointTests(WebApplicationFactory<Program> factory)
             // so CurrentUserContext.StaffId must be populated by hand - any
             // real Staff row satisfies the foreign key.
             CurrentUserContext currentUser = new() { StaffId = (await dbContext.Staff.FirstAsync()).Id };
+            FollowUpEmailSender emailSender = scope.ServiceProvider.GetRequiredService<FollowUpEmailSender>();
             // Real time cannot pass the due date within a test run, so a clock
             // moved past it stands in - see docs/07-testing.md.
             FakeClock lateClock = new(DateTimeOffset.UtcNow.AddDays(20));
-            LoanService loanService = new(dbContext, lateClock, currentUser);
+            LoanService loanService = new(dbContext, lateClock, currentUser, emailSender, NullLogger<LoanService>.Instance);
 
             await loanService.ReturnAsync(loanId, new ReturnLoanRequest { Condition = EquipmentCondition.Good }, CancellationToken.None);
         }

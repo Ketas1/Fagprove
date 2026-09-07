@@ -1,6 +1,13 @@
 using System.Net;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using SportForAlle.Api.Data;
+using SportForAlle.Api.Helpers;
+using SportForAlle.Api.Services;
+using SportForAlle.Api.Validation;
 using SportForAlle.Tests.TestSupport;
 
 namespace SportForAlle.Tests.Controllers;
@@ -254,6 +261,95 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
         });
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task SendFollowUpEmail_rejects_a_loan_that_is_not_overdue_with_409()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid loanId = await RegisterLoanAsync(client);
+
+        HttpResponseMessage response = await client.PostAsync($"/api/loans/{loanId}/send-followup-email", null);
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        ProblemPayload? problem = await response.Content.ReadFromJsonAsync<ProblemPayload>();
+        Assert.Equal("LoanNotOverdue", problem?.Reason);
+    }
+
+    [Fact]
+    public async Task SendFollowUpEmail_for_an_overdue_loan_logs_a_contact_attempt()
+    {
+        // Reaching an overdue loan needs a clock past the due date - real
+        // time cannot pass it within a test run, see
+        // Controllers/OverdueLoanRefreshTests.cs and docs/07-testing.md.
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid loanId = await RegisterLoanAsync(client);
+
+        Guid attemptId;
+        using (IServiceScope scope = authenticatedFactory.Services.CreateScope())
+        {
+            LoanService loanService = await BuildOverdueLoanServiceAsync(scope);
+            attemptId = (await loanService.SendFollowUpEmailAsync(loanId, CancellationToken.None)).Id;
+        }
+
+        List<ContactAttemptPayload>? attempts =
+            await client.GetFromJsonAsync<List<ContactAttemptPayload>>($"/api/loans/{loanId}/contact-attempts");
+        Assert.Contains(attempts!, attempt => attempt.Id == attemptId && attempt.Method == "Email");
+    }
+
+    [Fact]
+    public async Task SendFollowUpEmail_does_not_log_a_contact_attempt_when_the_email_fails_to_send()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new(emailJsStatusCode: HttpStatusCode.BadRequest);
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid loanId = await RegisterLoanAsync(client);
+
+        using (IServiceScope scope = authenticatedFactory.Services.CreateScope())
+        {
+            LoanService loanService = await BuildOverdueLoanServiceAsync(scope);
+
+            DomainConflictException exception = await Assert.ThrowsAsync<DomainConflictException>(
+                () => loanService.SendFollowUpEmailAsync(loanId, CancellationToken.None));
+            Assert.Equal("EmailSendFailed", exception.Reason);
+        }
+
+        List<ContactAttemptPayload>? attempts =
+            await client.GetFromJsonAsync<List<ContactAttemptPayload>>($"/api/loans/{loanId}/contact-attempts");
+        Assert.Empty(attempts!);
+    }
+
+    /// <summary>
+    /// A <see cref="LoanService"/> built with a clock 20 days past "now" -
+    /// every loan in this file is registered with a 14-day due date, so this
+    /// clock reads any of them as overdue without needing real time to pass.
+    /// </summary>
+    private static async Task<LoanService> BuildOverdueLoanServiceAsync(IServiceScope scope)
+    {
+        AppDbContext dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        CurrentUserContext currentUser = new() { StaffId = (await dbContext.Staff.FirstAsync()).Id };
+        FollowUpEmailSender emailSender = scope.ServiceProvider.GetRequiredService<FollowUpEmailSender>();
+        FakeClock lateClock = new(DateTimeOffset.UtcNow.AddDays(20));
+
+        return new LoanService(dbContext, lateClock, currentUser, emailSender, NullLogger<LoanService>.Instance);
+    }
+
+    /// <summary>Registers a fresh borrower, equipment, and a loan due in 14 days.</summary>
+    private static async Task<Guid> RegisterLoanAsync(HttpClient client)
+    {
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+
+        HttpResponseMessage response = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        response.EnsureSuccessStatusCode();
+
+        return (await response.Content.ReadFromJsonAsync<LoanPayload>())!.Id;
     }
 
     [Fact]

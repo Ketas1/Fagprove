@@ -56,7 +56,7 @@ Beregningen er fasit. Jobben er en materialisering av den, ikke en egen sannhet.
 
 Begge halvdeler av beslutningen er nå implementert:
 
-- Lesing: `Loan.IsOverdueNow(IClock)` - uendret siden opprinnelig beslutning.
+- Lesing: `Loan.IsOverdueNow(IClock)` - se presiseringen nederst (2026-09-07): sammenligningen ble rettet fra eksakt tidspunkt til kalenderdato.
 - Skriving: `Loan.RefreshOverdueStatus(IClock)`, kalt av
   `Services/BackgroundJobs/OverdueLoanBackgroundService.cs` - en
   `BackgroundService` registrert som `IHostedService` i `Program.cs`, ikke en
@@ -72,3 +72,19 @@ Begge halvdeler av beslutningen er nå implementert:
   den kan testes direkte med en flyttet klokke, uten å vente på at
   bakgrunnsjobben faktisk kjører - se `Controllers/OverdueLoanRefreshTests.cs`
   og `05-api.md`.
+
+## Presisering 2026-09-07: sammenligning på dato, ikke tidspunkt
+
+Feil funnet ved uttesting: et lån med `StartedAt` og `DueDate` samme
+kalenderdag (registrert og forfaller "7/9") kunne bli vist som forfalt samme
+dag, avhengig av hvilket klokkeslett `DueDate` tilfeldigvis fikk - fordi
+`IsOverdueNow` sammenlignet eksakte tidspunkter (`clock.UtcNow > DueDate`).
+Et lån med forfallsdato satt til midnatt ("00:00") ville dermed fremstå som
+forfalt nesten hele dagen det egentlig fortsatt løp.
+
+Rettet ved å sammenligne kalenderdato (UTC), ikke eksakt tidspunkt:
+et lån forfaller ikke før dagen *etter* `DueDate` begynner, uansett hvilket
+klokkeslett som er lagret. Samme retting er gjort i `Loan.Return()`s
+`DaysLate`-beregning og i frontendens `effectiveLoanStatus`
+(`frontend/src/lib/loan-status.ts`), som må holde seg i sync med
+`IsOverdueNow` av samme grunn som opprinnelig beslutning over.

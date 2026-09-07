@@ -72,6 +72,8 @@ Oversettelsen fra unntak til `ProblemDetails` skjer på ett sted:
 | `BorrowerAlreadyBanned` | `409` | `POST /api/borrowers/{id}/ban` - låntakeren er allerede utestengt |
 | `BorrowerNotBanned` | `409` | `POST /api/borrowers/{id}/ban/fee-paid`, `DELETE /api/borrowers/{id}/ban` - låntakeren er ikke utestengt |
 | `BanFeeNotPaid` | `409` | `DELETE /api/borrowers/{id}/ban` - gebyret er ikke registrert betalt ennå, se forretningsregel 8 |
+| `LoanNotOverdue` | `409` | `POST /api/loans/{id}/send-followup-email` - lånet er ikke forfalt |
+| `EmailSendFailed` | `502` | `POST /api/loans/{id}/send-followup-email` - EmailJS avviste kallet eller kunne ikke nås, se [ADR-0022](./adr/0022-emailjs-server-side.md) |
 
 ## Endepunkter
 
@@ -155,6 +157,7 @@ riktig knapp. Full historikk venter til den siden bygges.
 | `POST` | `/api/loans/{id}/mark-lost` | Staff | Registrer bekreftet tap eller skade. Setter lånet til `Lost` og utstyret til `WrittenOff`. `409 LoanAlreadyClosed` hvis lånet allerede er avsluttet |
 | `POST` | `/api/loans/{id}/contact-attempts` | Staff | Logg et kontaktforsøk overfor foresatt, med metode og resultat - se forretningsregel 6 |
 | `GET` | `/api/loans/{id}/contact-attempts` | Staff | Liste over kontaktforsøk for lånet, nyeste først, slik at ansatte ser om foresatt allerede er kontaktet |
+| `POST` | `/api/loans/{id}/send-followup-email` | Staff | Send en oppfølgings-e-post til foresatt via EmailJS og logg den som et kontaktforsøk (`Method: Email`) i samme handling - se [ADR-0022](./adr/0022-emailjs-server-side.md). `409 LoanNotOverdue` hvis lånet ikke er forfalt. `502 EmailSendFailed` hvis EmailJS avviser kallet - da logges intet kontaktforsøk, siden e-posten ikke faktisk ble sendt |
 
 Den automatiske forfallsdeteksjonen (forretningsregel 7) er beskrevet i
 [ADR-0011](./adr/0011-automatisk-forfall.md): `Loan.Status` beregnes korrekt
