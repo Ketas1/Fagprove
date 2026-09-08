@@ -13,6 +13,11 @@ export type Borrower = {
   lateReturnCount: number;
   isUnreliable: boolean;
   status: BorrowerStatus;
+  /// Archived borrowers are hidden from the working lists but restorable.
+  /// Anonymised ones have had their identifying data stripped and cannot be
+  /// restored - see ADR-0026 and docs/09-lover-og-regler.md.
+  archivedAt: string | null;
+  anonymisedAt: string | null;
   createdByStaffId: string | null;
   updatedByStaffId: string | null;
 };

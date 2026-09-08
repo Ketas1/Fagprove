@@ -40,18 +40,18 @@ Tre grunner:
 
 | Pakke / komponent | Versjon | Forventet lisens | Bekreftet |
 | --- | --- | --- | --- |
-| .NET 10 / ASP.NET Core | 10.0 | MIT | |
-| Microsoft.EntityFrameworkCore | 10.0.4 | MIT | |
-| Microsoft.EntityFrameworkCore.Design | 10.0.4 | MIT | |
-| Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | PostgreSQL License | |
-| Microsoft.AspNetCore.OpenApi | 10.0.11 | MIT | |
-| xUnit | 2.9.3 | Apache 2.0 | |
-| Microsoft.AspNetCore.Mvc.Testing | 10.0.11 | MIT | |
-| Microsoft.NET.Test.Sdk | 17.14.1 | MIT | |
-| coverlet.collector | 6.0.4 | MIT | |
-| DotNetEnv | 3.2.0 | MIT | |
-| Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.4 | MIT | |
-| Scalar.AspNetCore | 2.11.3 | MIT | |
+| .NET 10 / ASP.NET Core | 10.0 | MIT | Bekreftet 2026-09-08 - runtime og rammeverk er MIT, se [dotnet/runtime](https://github.com/dotnet/runtime/blob/main/LICENSE.TXT) |
+| Microsoft.EntityFrameworkCore | 10.0.4 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen (`<license type="expression">MIT</license>`) |
+| Microsoft.EntityFrameworkCore.Design | 10.0.4 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| Npgsql.EntityFrameworkCore.PostgreSQL | 10.0.3 | PostgreSQL License | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen (`PostgreSQL`) - permissiv, BSD-lignende |
+| Microsoft.AspNetCore.OpenApi | 10.0.11 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| xUnit | 2.9.3 | Apache 2.0 | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen (`Apache-2.0`). Gjelder også `xunit.runner.visualstudio` 3.1.4 |
+| Microsoft.AspNetCore.Mvc.Testing | 10.0.11 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| Microsoft.NET.Test.Sdk | 17.14.1 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| coverlet.collector | 6.0.4 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| DotNetEnv | 3.2.0 | MIT | Bekreftet 2026-09-08 - `.nuspec` peker på en lisensfil, og filen er MIT ("The MIT License (MIT), Copyright (c) 2016 Toni Solarin-Sodara") |
+| Microsoft.AspNetCore.Authentication.JwtBearer | 10.0.4 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
+| Scalar.AspNetCore | 2.11.3 | MIT | Bekreftet 2026-09-08 mot `.nuspec` i NuGet-cachen |
 | Testcontainers | ikke installert | MIT | |
 
 > EF Core er låst til **10.0.4**, ikke nyeste patch. Npgsql-provideren 10.0.3 er
@@ -82,6 +82,10 @@ Tre grunner:
 | tw-animate-css | 1.4.0 | MIT | |
 | cmdk | 1.1.1 | MIT | |
 | react-day-picker | 10.0.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/react-day-picker/LICENSE` og `package.json` |
+| recharts | 3.10.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/recharts/LICENSE` og `package.json` |
+| jspdf | 4.2.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/jspdf/LICENSE` og `package.json` |
+| jspdf-autotable | 5.0.8 | MIT | Bekreftet 2026-09-07 mot `node_modules/jspdf-autotable/LICENSE.txt` og `package.json` |
+| write-excel-file | 4.1.1 | MIT | Bekreftet 2026-09-07 mot `node_modules/write-excel-file/LICENSE` og `package.json`. Importeres som `write-excel-file/browser` - pakken har ingen rot-eksport |
 | Bun | 1.3.6 | MIT | |
 
 > shadcn er ikke ett bibliotek som installeres og importeres, men en CLI som
@@ -141,18 +145,76 @@ det ikke berører lokal utvikling.
 > Utsending av e-post til foresatte innebærer behandling av personopplysninger,
 > og krever databehandleravtale på samme måte som Auth0.
 
+## Full gjennomgang av avhengighetstreet
+
+Tabellene over dekker pakkene prosjektet velger selv. Den virkelige risikoen
+ligger i de transitive avhengighetene - pakker ingen har valgt bevisst, men som
+følger med. Frontend-treet ble skannet i sin helhet 2026-09-08 med
+`license-checker-rseidelsohn`, som leser faktisk lisensmetadata fra hver pakke i
+`node_modules`:
+
+```bash
+cd frontend
+bunx license-checker-rseidelsohn --summary
+```
+
+Resultat, 904 pakker:
+
+| Lisens | Antall |
+| --- | --- |
+| MIT | 766 |
+| ISC | 53 |
+| Apache-2.0 | 28 |
+| BSD-3-Clause | 20 |
+| BSD-2-Clause | 14 |
+| BlueOak-1.0.0 | 9 |
+| MPL-2.0 | 3 |
+| Øvrige, én hver | MIT-0, Python-2.0, CC-BY-4.0, CC0-1.0, 0BSD, MIT\*, UNLICENSED, `Apache-2.0 AND LGPL-3.0-or-later`, `(MPL-2.0 OR Apache-2.0)`, `(MIT AND Zlib)`, `(MIT OR CC0-1.0)`, `MIT AND ISC` |
+
+**Hovedfunnet: ingen GPL eller AGPL noe sted i treet.** Det er regelen som
+betyr noe i tabellen øverst i dokumentet, og den holder.
+
+### Funn som krever en merknad
+
+| Funn | Vurdering |
+| --- | --- |
+| `UNLICENSED` | Dette er **prosjektets egen** `frontend/package.json`, ikke en tredjepartspakke. `name: "frontend"`, ingen `license`-nøkkel, så verktøyet rapporterer den som ulisensiert. Ingen juridisk risiko, men se avsnittet om egen kildekode under - ved en overlevering bør leveransen ha en uttalt lisens. |
+| `@img/sharp-win32-x64` - `Apache-2.0 AND LGPL-3.0-or-later` | Den eneste copyleft-komponenten i treet. Er Windows-binæret til `sharp` (bildebehandling, LGPL-delen er libvips), som Next.js installerer for `next/image`. **`next/image` brukes ikke noe sted i `src/`** - LGPL-komponenten ligger i `node_modules`, men kjøres aldri. LGPL tillater dessuten bruk som dynamisk lenket avhengighet uten at egen kode smittes. Merk at dette er `win32`-binæret, altså et artefakt fra utviklingsmaskinen; et Linux-bygg i Docker henter et annet. |
+| `caniuse-lite` - `CC-BY-4.0` | Datapakke med nettleserstøtte, brukt av browserslist under bygging. CC-BY krever navngivelse. Dataene distribueres ikke videre i bundelen, men navngivelse hører hjemme her. |
+| `rgbcolor@1.0.1` - `MIT*` | Stjernen betyr at verktøyet **gjettet** lisensen fra en README, fordi pakken verken har `license`-felt eller lisensfil. Kommer inn via `jspdf` → `canvg` → `rgbcolor`, altså i rapporteksporten ([ADR-0023](./adr/0023-rapporteksport.md)) - en reell produksjonssti, ikke bare et utviklingsverktøy. Lav risiko, men **ubekreftet**, og det eneste punktet i treet som ikke lar seg verifisere fra pakken selv. |
+| `argparse` - `Python-2.0` | Python Software Foundation License 2.0. Permissiv og GPL-kompatibel. Transitiv, via ESLint-kjeden. Ingen konsekvens. |
+| MPL-2.0 (`axe-core`, `lightningcss` ×2) | Svak copyleft på filnivå. `axe-core` er tilgjengelighetstesting (utvikling), `lightningcss` er CSS-verktøy som følger med Tailwind 4. Begge brukes uendret som avhengigheter, og MPL stiller da ingen krav til egen kode. `dompurify` er `(MPL-2.0 OR Apache-2.0)` - Apache-2.0 kan velges. |
+
+### Backend
+
+`dotnet list package --include-transitive` lister pakker, men ikke lisenser.
+De direkte pakkene er derfor verifisert mot `.nuspec`-metadataen i den lokale
+NuGet-cachen, som er den samme metadataen NuGet.org viser. Resultatet står i
+"Bekreftet"-kolonnen over: **alt er MIT, med unntak av Npgsql (PostgreSQL
+License) og xUnit (Apache-2.0)** - alle tre permissive.
+
+**Transitive NuGet-pakker er ikke maskinelt gjennomgått.** De kommer i praksis
+fra `dotnet/runtime` og `dotnet/efcore`, som begge er MIT, men det er en
+antakelse dette dokumentet ikke har verifisert. Et verktøy som `nuget-license`
+vil kunne lukke det hullet.
+
 ## Kontroll av lisenser
 
 Kjøres ved sluttgjennomgangen, og resultatet føres inn i tabellene over.
+
 
 ```bash
 # Backend - alle pakker, inkludert transitive avhengigheter
 cd backend
 dotnet list package --include-transitive
 
-# Frontend
+# Frontend - navn og versjoner
 cd frontend
 bun pm ls
+
+# Frontend - faktiske lisenser for hele treet
+bunx license-checker-rseidelsohn --summary
+bunx license-checker-rseidelsohn --csv    # per pakke, for å finne igjen et enkelt funn
 ```
 
 Gå gjennom listene og se etter:
@@ -167,3 +229,16 @@ Gå gjennom listene og se etter:
 > Avklar og dokumenter: hvilken lisens leveres selve løsningen under, og hvem
 > eier opphavsretten til koden. Dette er et spørsmål for oppdragsgiver, ikke et
 > teknisk valg, men det hører hjemme i dokumentasjonen ved en overlevering.
+
+Per 2026-09-08 er spørsmålet **ikke avklart**, og det synes i verktøyet:
+`frontend/package.json` har ingen `license`-nøkkel, så skanningen rapporterer
+prosjektet selv som `UNLICENSED`. Det er ikke en feil i seg selv - en privat,
+ikke-publisert pakke skal gjerne være det - men for en leveranse som skal
+overtas av en annen IT-avdeling bør det stå eksplisitt hva de har lov til å
+gjøre med koden.
+
+To ting bør på plass før overlevering:
+
+1. En avklaring med oppdragsgiver om opphavsrett og lisens for løsningen.
+2. Når den er tatt: sett `"license"` i `frontend/package.json`, legg en
+   `LICENSE`-fil i repoets rot, og noter valget her.

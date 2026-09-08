@@ -1,10 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, Camera, Mail, Phone } from 'lucide-react';
+import { ArrowLeft, Mail, Phone } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LoanContactAttemptsSection } from '@/components/loans/loan-contact-attempts-section';
 import { MarkLostButton } from '@/components/loans/mark-lost-button';
-import { NotBuiltYetBadge } from '@/components/not-built-yet';
 import { StatusBadge } from '@/components/status-badge';
 import { RegisterReturnDialog } from '@/components/loans/register-return-dialog';
 import { BackendError, fetchBackend } from '@/lib/backend';
@@ -110,21 +109,14 @@ export default async function LoanDetailPage({ params }: { params: Promise<{ id:
                 valueClassName={loan.returnedAt ? undefined : 'font-normal text-muted-foreground'}
               />
               {loan.daysLate !== null && <Field label="Dager for sent levert" value={String(loan.daysLate)} />}
-
-              <div className="col-span-3 flex flex-col gap-3 border-t pt-4">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[12.5px] font-medium text-muted-foreground">Bilder</span>
-                  <NotBuiltYetBadge reason="Det finnes ingen filopplasting eller bildelagring i API-et ennå." />
-                </div>
-                <div className="grid grid-cols-2 gap-3.5">
-                  <PhotoPlaceholder label="Bilde ved utlevering" />
-                  <PhotoPlaceholder label="Bilde ved retur" />
-                </div>
-              </div>
             </CardContent>
           </Card>
 
-          <LoanContactAttemptsSection loanId={loan.id} initialAttempts={contactAttempts} />
+          <LoanContactAttemptsSection
+            loanId={loan.id}
+            initialAttempts={contactAttempts}
+            isOverdue={status === 'Overdue'}
+          />
         </div>
 
         <div className="flex flex-col gap-5">
@@ -211,17 +203,6 @@ function Field({
     <div>
       <div className="text-[11.5px] font-medium text-muted-foreground">{label}</div>
       <div className={`mt-1 text-sm font-medium ${valueClassName ?? ''}`}>{value}</div>
-    </div>
-  );
-}
-
-function PhotoPlaceholder({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="text-[11.5px] font-medium text-muted-foreground">{label}</span>
-      <div className="flex h-[100px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed text-muted-foreground">
-        <Camera className="size-5" />
-      </div>
     </div>
   );
 }

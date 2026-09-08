@@ -10,7 +10,12 @@ using SportForAlle.Api.Validation;
 
 namespace SportForAlle.Api.Services;
 
-public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContext currentUser)
+public class LoanService(
+    AppDbContext dbContext,
+    IClock clock,
+    CurrentUserContext currentUser,
+    FollowUpEmailSender emailSender,
+    ILogger<LoanService> logger)
 {
     private static readonly LoanStatus[] _openStatuses = [LoanStatus.Active, LoanStatus.Overdue];
 
@@ -18,7 +23,10 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
     {
         List<LoanWithNames> rows = await QueryWithNames(status: status).ToListAsync(cancellationToken);
 
-        return rows.Select(row => LoanMapper.ToResponse(row.Loan, row.BorrowerName, row.EquipmentName)).ToList();
+        return rows
+            .Select(row => LoanMapper.ToResponse(
+                row.Loan, row.BorrowerName, row.EquipmentName, row.ContactAttemptCount, row.LastContactedAt))
+            .ToList();
     }
 
     public async Task<LoanResponse> GetByIdAsync(Guid id, CancellationToken cancellationToken)
@@ -26,7 +34,8 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
         LoanWithNames row = await QueryWithNames(id: id).FirstOrDefaultAsync(cancellationToken)
             ?? throw new NotFoundException("Fant ikke utlån.");
 
-        return LoanMapper.ToResponse(row.Loan, row.BorrowerName, row.EquipmentName);
+        return LoanMapper.ToResponse(
+            row.Loan, row.BorrowerName, row.EquipmentName, row.ContactAttemptCount, row.LastContactedAt);
     }
 
     public async Task<LoanResponse> RegisterAsync(CreateLoanRequest request, CancellationToken cancellationToken)
@@ -53,7 +62,72 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
         dbContext.Loans.Add(loan);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name);
+        // A loan that was just created cannot have contact attempts yet.
+        return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name, 0, lastContactedAt: null);
+    }
+
+    /// <summary>
+    /// Corrects an open loan. Reassigning the equipment moves both items
+    /// through the Utstyrstatus arrows - the previous item is released back to
+    /// Available and the new one marked OnLoan - so the two never disagree
+    /// with the loan. Reassigning the borrower re-runs business rule 2 against
+    /// the new borrower, ignoring this loan itself so a loan cannot block its
+    /// own correction. See ADR-0025.
+    /// </summary>
+    public async Task<LoanResponse> UpdateAsync(
+        Guid id, UpdateLoanRequest request, CancellationToken cancellationToken)
+    {
+        Loan loan = await dbContext.Loans.FirstOrDefaultAsync(l => l.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utlån.");
+
+        LoanRules.EnsureLoanCanBeCorrected(loan);
+
+        Borrower borrower = await dbContext.Borrowers
+            .FirstOrDefaultAsync(b => b.Id == request.BorrowerId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        Equipment equipment = await dbContext.Equipment
+            .FirstOrDefaultAsync(e => e.Id == request.EquipmentId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utstyr.");
+
+        Guid staffId = currentUser.RequireStaffId();
+
+        if (request.BorrowerId != loan.BorrowerId)
+        {
+            List<Loan> openLoans = await dbContext.Loans
+                .Where(other => other.BorrowerId == borrower.Id
+                    && other.Id != loan.Id
+                    && _openStatuses.Contains(other.Status))
+                .ToListAsync(cancellationToken);
+
+            LoanRules.EnsureBorrowerCanBorrow(borrower, openLoans, clock);
+        }
+
+        if (request.EquipmentId != loan.EquipmentId)
+        {
+            LoanRules.EnsureEquipmentAvailable(equipment);
+
+            Equipment previous = await dbContext.Equipment
+                .FirstOrDefaultAsync(e => e.Id == loan.EquipmentId, cancellationToken)
+                ?? throw new NotFoundException("Fant ikke utstyr.");
+
+            previous.ReleaseFromCorrectedLoan(clock, staffId);
+            equipment.MarkOnLoan(clock, staffId);
+        }
+
+        loan.Correct(request.BorrowerId, request.EquipmentId, request.StartedAt, request.DueDate, clock, staffId);
+
+        // Correct() resets to Active; this re-derives Overdue from the new due
+        // date, so extending a due date past today clears the overdue state.
+        loan.RefreshOverdueStatus(clock);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        (int contactAttemptCount, DateTimeOffset? lastContactedAt) =
+            await GetContactSummaryAsync(loan.Id, cancellationToken);
+
+        return LoanMapper.ToResponse(
+            loan, borrower.Name, equipment.Name, contactAttemptCount, lastContactedAt);
     }
 
     public async Task<LoanResponse> ReturnAsync(Guid id, ReturnLoanRequest request, CancellationToken cancellationToken)
@@ -87,7 +161,11 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name);
+        (int contactAttemptCount, DateTimeOffset? lastContactedAt) =
+            await GetContactSummaryAsync(loan.Id, cancellationToken);
+
+        return LoanMapper.ToResponse(
+            loan, borrower.Name, equipment.Name, contactAttemptCount, lastContactedAt);
     }
 
     /// <summary>The equipment was confirmed lost or destroyed while on loan - a terminal state for both.</summary>
@@ -113,7 +191,11 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return LoanMapper.ToResponse(loan, borrower.Name, equipment.Name);
+        (int contactAttemptCount, DateTimeOffset? lastContactedAt) =
+            await GetContactSummaryAsync(loan.Id, cancellationToken);
+
+        return LoanMapper.ToResponse(
+            loan, borrower.Name, equipment.Name, contactAttemptCount, lastContactedAt);
     }
 
     /// <summary>Business rule 6 in docs/03-domenemodell.md: every contact attempt is logged with date, method and outcome.</summary>
@@ -153,6 +235,67 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
     }
 
     /// <summary>
+    /// Sends the overdue follow-up email via EmailJS and, only on success,
+    /// logs it as a <see cref="ContactAttempt"/> (business rule 6 in
+    /// docs/03-domenemodell.md) - one atomic action, not two. If the email
+    /// fails to send, nothing is logged: a contact attempt records that
+    /// contact actually happened, not that it was merely attempted. See
+    /// docs/adr/0022-emailjs-server-side.md.
+    /// </summary>
+    public async Task<ContactAttemptResponse> SendFollowUpEmailAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Loan loan = await dbContext.Loans.FirstOrDefaultAsync(l => l.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utlån.");
+
+        LoanRules.EnsureLoanIsOverdue(loan, clock);
+
+        Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == loan.BorrowerId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        Guardian guardian = await dbContext.Guardians.FirstOrDefaultAsync(g => g.Id == borrower.GuardianId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke foresatt.");
+
+        Equipment equipment = await dbContext.Equipment.FirstOrDefaultAsync(e => e.Id == loan.EquipmentId, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke utstyr.");
+
+        // Same calendar-date arithmetic as Loan.Return()'s DaysLate - see the
+        // 2026-09-07 addendum to ADR-0011.
+        int daysOverdue = (clock.UtcNow.UtcDateTime.Date - loan.DueDate.UtcDateTime.Date).Days;
+
+        Dictionary<string, string> templateParams = new()
+        {
+            ["email"] = guardian.Email,
+            ["to_name"] = guardian.Name,
+            ["child_name"] = borrower.Name,
+            ["equipment_name"] = equipment.Name,
+            ["due_date"] = loan.DueDate.ToString("dd.MM.yyyy"),
+            ["days_overdue"] = daysOverdue.ToString(),
+        };
+
+        try
+        {
+            await emailSender.SendAsync(templateParams, cancellationToken);
+        }
+        catch (EmailSendException)
+        {
+            // The exception's own message (EmailJS's raw response text) is
+            // not logged here - it could echo request content back, and
+            // logs must never carry personal data, see CLAUDE.md.
+            logger.LogWarning("Follow-up email failed to send for loan {LoanId}.", id);
+            throw new DomainConflictException(
+                "EmailSendFailed", "E-posten kunne ikke sendes.", StatusCodes.Status502BadGateway);
+        }
+
+        Guid staffId = currentUser.RequireStaffId();
+        ContactAttempt attempt = new(
+            id, ContactMethod.Email, "E-post sendt automatisk via oppfølgingsknapp.", clock, staffId);
+        dbContext.ContactAttempts.Add(attempt);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return ContactAttemptMapper.ToResponse(attempt);
+    }
+
+    /// <summary>
     /// The write-time half of ADR-0011: finds every loan still marked <see cref="LoanStatus.Active"/>
     /// but past its due date and materialises it to <see cref="LoanStatus.Overdue"/>. Called by
     /// <see cref="BackgroundJobs.OverdueLoanBackgroundService"/> on a timer, and directly from
@@ -178,6 +321,24 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
     }
 
     /// <summary>
+    /// The two contact figures for one loan, for the state-transition
+    /// endpoints that return a single <see cref="LoanResponse"/>. The list
+    /// queries do not use this - <see cref="QueryWithNames"/> gets the same
+    /// figures for every row inside its own statement instead.
+    /// </summary>
+    private async Task<(int Count, DateTimeOffset? LastContactedAt)> GetContactSummaryAsync(
+        Guid loanId, CancellationToken cancellationToken)
+    {
+        var summary = await dbContext.ContactAttempts
+            .Where(attempt => attempt.LoanId == loanId)
+            .GroupBy(attempt => attempt.LoanId)
+            .Select(group => new { Count = group.Count(), Last = (DateTimeOffset?)group.Max(a => a.CreatedAt) })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        return (summary?.Count ?? 0, summary?.Last);
+    }
+
+    /// <summary>
     /// Filtering and ordering are applied inside this query, not by chaining
     /// a further `.Where`/`.OrderByDescending` onto its result - EF Core
     /// cannot translate either over members of an already
@@ -190,7 +351,19 @@ public class LoanService(AppDbContext dbContext, IClock clock, CurrentUserContex
         join equipment in dbContext.Equipment on loan.EquipmentId equals equipment.Id
         where (id == null || loan.Id == id) && (status == null || loan.Status == status)
         orderby loan.StartedAt descending
-        select new LoanWithNames(loan, borrower.Name, equipment.Name);
+        select new LoanWithNames(
+            loan,
+            borrower.Name,
+            equipment.Name,
+            dbContext.ContactAttempts.Count(attempt => attempt.LoanId == loan.Id),
+            dbContext.ContactAttempts
+                .Where(attempt => attempt.LoanId == loan.Id)
+                .Max(attempt => (DateTimeOffset?)attempt.CreatedAt));
 
-    private sealed record LoanWithNames(Loan Loan, string BorrowerName, string EquipmentName);
+    private sealed record LoanWithNames(
+        Loan Loan,
+        string BorrowerName,
+        string EquipmentName,
+        int ContactAttemptCount,
+        DateTimeOffset? LastContactedAt);
 }

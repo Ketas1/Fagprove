@@ -3,7 +3,9 @@
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { AlertTriangle } from 'lucide-react';
-import { RowActionsMenu } from '@/components/row-actions-menu';
+import { ConfirmDialog } from '@/components/confirm-dialog';
+import { Archive, ArchiveRestore, Trash2, UserX } from 'lucide-react';
+import { RowActionsMenu, type RowAction } from '@/components/row-actions-menu';
 import { StatusBadge } from '@/components/status-badge';
 import { SearchInput } from '@/components/ui/search-input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,7 +20,7 @@ import type { Borrower } from '@/types/borrower';
 import type { Guardian } from '@/types/guardian';
 import type { Loan } from '@/types/loan';
 
-type Filter = 'all' | 'active' | 'banned' | 'unreliable';
+type Filter = 'all' | 'active' | 'banned' | 'unreliable' | 'archived';
 
 export function BorrowersExplorer({
   borrowers,
@@ -33,6 +35,7 @@ export function BorrowersExplorer({
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [editingBorrower, setEditingBorrower] = useState<Borrower | null>(null);
+  const [lifecycleTarget, setLifecycleTarget] = useState<{ borrower: Borrower; kind: LifecycleKind } | null>(null);
 
   const activeLoanCountByBorrower = useMemo(() => {
     const now = new Date();
@@ -46,24 +49,33 @@ export function BorrowersExplorer({
     return counts;
   }, [loans]);
 
-  const counts = useMemo(
-    () => ({
-      all: borrowers.length,
-      active: borrowers.filter((b) => b.status === 'Active').length,
-      banned: borrowers.filter((b) => b.status === 'Banned').length,
-      unreliable: borrowers.filter((b) => b.isUnreliable).length,
-    }),
-    [borrowers],
-  );
+  // Every count except "Arkivert" excludes archived borrowers, so each tab
+  // label matches the number of rows it actually shows.
+  const counts = useMemo(() => {
+    const live = borrowers.filter((b) => b.archivedAt === null);
+    return {
+      all: live.length,
+      active: live.filter((b) => b.status === 'Active').length,
+      banned: live.filter((b) => b.status === 'Banned').length,
+      unreliable: live.filter((b) => b.isUnreliable).length,
+      archived: borrowers.length - live.length,
+    };
+  }, [borrowers]);
 
   const filtered = useMemo(() => {
     const query = normalizeSearchQuery(search);
     return borrowers.filter((borrower) => {
+      // Archived borrowers are hidden from every working view - that is what
+      // archiving is for - and reachable only through their own tab.
+      const isArchived = borrower.archivedAt !== null;
       const matchesFilter =
-        filter === 'all' ||
-        (filter === 'active' && borrower.status === 'Active') ||
-        (filter === 'banned' && borrower.status === 'Banned') ||
-        (filter === 'unreliable' && borrower.isUnreliable);
+        filter === 'archived'
+          ? isArchived
+          : !isArchived &&
+            (filter === 'all' ||
+              (filter === 'active' && borrower.status === 'Active') ||
+              (filter === 'banned' && borrower.status === 'Banned') ||
+              (filter === 'unreliable' && borrower.isUnreliable));
       const matchesSearch =
         query.length === 0 ||
         borrower.name.toLowerCase().includes(query) ||
@@ -83,6 +95,7 @@ export function BorrowersExplorer({
               <TabsTrigger value="active">Aktive ({counts.active})</TabsTrigger>
               <TabsTrigger value="banned">Utestengt ({counts.banned})</TabsTrigger>
               <TabsTrigger value="unreliable">Upålitelig ({counts.unreliable})</TabsTrigger>
+              <TabsTrigger value="archived">Arkivert ({counts.archived})</TabsTrigger>
             </TabsList>
           </Tabs>
         </div>
@@ -139,7 +152,8 @@ export function BorrowersExplorer({
                 <TableCell onClick={(event) => event.stopPropagation()}>
                   <RowActionsMenu
                     openHref={detailHref}
-                    onEdit={() => setEditingBorrower(borrower)}
+                    onEdit={borrower.anonymisedAt ? undefined : () => setEditingBorrower(borrower)}
+                    actions={lifecycleActions(borrower, (kind) => setLifecycleTarget({ borrower, kind }))}
                     label={`Handlinger for ${borrower.name}`}
                   />
                 </TableCell>
@@ -148,6 +162,18 @@ export function BorrowersExplorer({
           })}
         </TableBody>
       </Table>
+
+      {lifecycleTarget && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setLifecycleTarget(null)}
+          title={LIFECYCLE_COPY[lifecycleTarget.kind].title}
+          description={LIFECYCLE_COPY[lifecycleTarget.kind].description(lifecycleTarget.borrower.name)}
+          confirmLabel={LIFECYCLE_COPY[lifecycleTarget.kind].confirmLabel}
+          destructive={LIFECYCLE_COPY[lifecycleTarget.kind].destructive}
+          action={() => runLifecycle(lifecycleTarget.borrower.id, lifecycleTarget.kind)}
+        />
+      )}
 
       {editingBorrower && (
         <EditBorrowerDialog
@@ -158,4 +184,76 @@ export function BorrowersExplorer({
       )}
     </div>
   );
+}
+
+/** Which lifecycle action the confirmation dialog is currently asking about. */
+type LifecycleKind = 'archive' | 'restore' | 'anonymise' | 'delete';
+
+/**
+ * Archiving is reversible, anonymising and deleting are not. Delete is only
+ * offered for a borrower with no history at all - the backend refuses the
+ * rest with 409 BorrowerHasHistory, and offering a button that always fails
+ * would be worse than not offering it. See ADR-0026.
+ */
+function lifecycleActions(borrower: Borrower, ask: (kind: LifecycleKind) => void): RowAction[] {
+  if (borrower.anonymisedAt) {
+    return [];
+  }
+
+  const actions: RowAction[] = borrower.archivedAt
+    ? [{ label: 'Gjenopprett', icon: ArchiveRestore, onClick: () => ask('restore') }]
+    : [{ label: 'Arkiver', icon: Archive, onClick: () => ask('archive') }];
+
+  actions.push({ label: 'Anonymiser', icon: UserX, onClick: () => ask('anonymise'), destructive: true });
+  actions.push({ label: 'Slett', icon: Trash2, onClick: () => ask('delete'), destructive: true });
+
+  return actions;
+}
+
+const LIFECYCLE_COPY: Record<
+  LifecycleKind,
+  { title: string; confirmLabel: string; destructive: boolean; description: (name: string) => string }
+> = {
+  archive: {
+    title: 'Arkiver låntaker',
+    confirmLabel: 'Arkiver',
+    destructive: false,
+    description: (name) =>
+      `${name} skjules fra listene, men ingenting slettes. Du kan gjenopprette når som helst.`,
+  },
+  restore: {
+    title: 'Gjenopprett låntaker',
+    confirmLabel: 'Gjenopprett',
+    destructive: false,
+    description: (name) => `${name} blir synlig i listene igjen.`,
+  },
+  anonymise: {
+    title: 'Anonymiser låntaker',
+    confirmLabel: 'Anonymiser',
+    destructive: true,
+    description: (name) =>
+      `Navnet på ${name} fjernes permanent, og notatene slettes. Utlånene beholdes uten navn, slik at ` +
+      'rapportene til kommunen fortsatt stemmer. Dette kan ikke angres.',
+  },
+  delete: {
+    title: 'Slett låntaker',
+    confirmLabel: 'Slett',
+    destructive: true,
+    description: (name) =>
+      `${name} slettes permanent. Dette er bare mulig når låntakeren ikke har utlån, utestengelser ` +
+      'eller notater - har hen det, bruk Anonymiser i stedet.',
+  },
+};
+
+function runLifecycle(borrowerId: string, kind: LifecycleKind): Promise<Response> {
+  switch (kind) {
+    case 'archive':
+      return fetch(`/api/borrowers/${borrowerId}/archive`, { method: 'POST' });
+    case 'restore':
+      return fetch(`/api/borrowers/${borrowerId}/archive`, { method: 'DELETE' });
+    case 'anonymise':
+      return fetch(`/api/borrowers/${borrowerId}/anonymise`, { method: 'POST' });
+    case 'delete':
+      return fetch(`/api/borrowers/${borrowerId}`, { method: 'DELETE' });
+  }
 }

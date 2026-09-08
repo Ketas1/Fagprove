@@ -35,11 +35,39 @@ public static class LoanRules
         }
     }
 
+    /// <summary>
+    /// A Returned or Lost loan is history the reports are built on. Its
+    /// DaysLate and the borrower's late-return counter were computed at the
+    /// time it closed, so re-opening it for edits would silently invalidate
+    /// both. Notes can still be added to a closed loan - see ADR-0025.
+    /// </summary>
+    public static void EnsureLoanCanBeCorrected(Loan loan)
+    {
+        if (loan.Status is LoanStatus.Returned or LoanStatus.Lost)
+        {
+            throw new DomainConflictException(
+                "LoanAlreadyClosed", "Utlånet er avsluttet og kan ikke endres.");
+        }
+    }
+
     public static void EnsureEquipmentAvailable(Equipment equipment)
     {
         if (equipment.Status != EquipmentStatus.Available)
         {
             throw new DomainConflictException("EquipmentNotAvailable", "Utstyret er ikke ledig.");
+        }
+    }
+
+    /// <summary>
+    /// The follow-up email exists to chase an overdue loan - sending it for
+    /// a loan that isn't overdue would be a false accusation to the
+    /// guardian, not just a wasted email.
+    /// </summary>
+    public static void EnsureLoanIsOverdue(Loan loan, IClock clock)
+    {
+        if (!loan.IsOverdueNow(clock))
+        {
+            throw new DomainConflictException("LoanNotOverdue", "Lånet er ikke forfalt.");
         }
     }
 }

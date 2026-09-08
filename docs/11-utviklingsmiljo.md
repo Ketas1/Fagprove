@@ -100,15 +100,25 @@ Start hvert steg i sitt eget terminalvindu:
 # 1. Database
 docker compose up -d db
 
-# 2. Backend
-cd backend/SportForAlle.Api
+# 2. Skjemaet - engangsjobb, og etter hver nye migrasjon
+dotnet tool install --global dotnet-ef
+cd backend
+dotnet ef database update --project SportForAlle.Api --startup-project SportForAlle.Api
+
+# 3. Backend
+cd SportForAlle.Api
 dotnet run
 
-# 3. Frontend
+# 4. Frontend
 cd frontend
 bun install
 bun dev
 ```
+
+> Steg 2 er lett å overse. Databasecontaineren starter tom, så uten det starter
+> API-et fint, men hver side feiler. Se
+> [`15-installasjon.md`](./15-installasjon.md) for hele førstegangsoppsettet,
+> inkludert innlogging og kobling av ansattprofil.
 
 | Tjeneste | Adresse |
 | --- | --- |

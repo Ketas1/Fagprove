@@ -12,16 +12,20 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
 import { Input } from '@/components/ui/input';
 import type { Borrower } from '@/types/borrower';
 import type { ProblemDetails } from '@/types/problem-details';
 
 /**
- * Only Navn is editable - `PUT /api/borrowers/{id}` does not accept
- * DateOfBirth or GuardianId, see backend/SportForAlle.Api/Dtos/Borrowers/UpdateBorrowerRequest.cs
- * and docs/03-domenemodell.md ("Fødselsdato og foresatt kan ikke endres etter
- * registrering"). A field for either here would silently claim an ability
- * the backend doesn't have.
+ * Navn og fødselsdato kan endres. Foresatt kan ikke - å flytte et barn til en
+ * annen foresatt er en annen operasjon enn å rette en skrivefeil, og har
+ * ingen endepunkt.
+ *
+ * Å endre fødselsdatoen endrer også historiske aldersgrupperapporter, fordi
+ * rapporten regner ut alderen fra fødselsdatoen ved lånets startdato hver
+ * gang den kjøres. Det er tilsiktet: var datoen feil, var tallene det også.
+ * Se ADR-0024.
  */
 export function EditBorrowerDialog({
   borrower,
@@ -34,8 +38,11 @@ export function EditBorrowerDialog({
 }) {
   const router = useRouter();
   const [name, setName] = useState(borrower.name);
+  const [dateOfBirth, setDateOfBirth] = useState(borrower.dateOfBirth);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
+
+  const dateChanged = dateOfBirth !== borrower.dateOfBirth;
 
   async function handleSubmit() {
     setSubmitting(true);
@@ -44,7 +51,7 @@ export function EditBorrowerDialog({
     const response = await fetch(`/api/borrowers/${borrower.id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, dateOfBirth }),
     });
 
     setSubmitting(false);
@@ -64,7 +71,7 @@ export function EditBorrowerDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Rediger barn</DialogTitle>
-          <DialogDescription>Navn kan endres. Fødselsdato og foresatt kan ikke.</DialogDescription>
+          <DialogDescription>Navn og fødselsdato kan endres. Foresatt kan ikke.</DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -81,13 +88,31 @@ export function EditBorrowerDialog({
             </label>
             <Input value={name} onChange={(event) => setName(event.target.value)} autoFocus />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12.5px] font-medium text-muted-foreground">
+              Fødselsdato <span className="text-status-danger-fg">*</span>
+            </label>
+            <DatePicker
+              value={dateOfBirth}
+              onChange={setDateOfBirth}
+              toYear={new Date().getFullYear()}
+            />
+            {dateChanged && (
+              <p className="flex gap-2 rounded-lg bg-status-warning-bg p-2.5 text-[11.5px] leading-relaxed text-status-warning-fg">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                Endrer du fødselsdatoen, flyttes barnets tidligere utlån til en annen aldersgruppe i
+                rapportene.
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Avbryt
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !name.trim()}>
+          <Button onClick={handleSubmit} disabled={submitting || !name.trim() || !dateOfBirth}>
             <Check /> {submitting ? 'Lagrer …' : 'Lagre'}
           </Button>
         </DialogFooter>

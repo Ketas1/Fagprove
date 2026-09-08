@@ -44,4 +44,38 @@ describe('Combobox', () => {
     expect(screen.getByText('Foresatte')).toBeInTheDocument();
     expect(screen.getByText('Utstyr')).toBeInTheDocument();
   });
+
+  it('offers a create-new row for unmatched text when onCreateNew is given', () => {
+    const onCreateNew = jest.fn();
+    render(<Combobox items={items} value={null} onChange={jest.fn()} onCreateNew={onCreateNew} />);
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByPlaceholderText('Søk…'), { target: { value: 'Snowboard' } });
+
+    const createRow = screen.getByText('Opprett «Snowboard»');
+    expect(createRow).toBeInTheDocument();
+
+    fireEvent.click(createRow);
+
+    expect(onCreateNew).toHaveBeenCalledWith('Snowboard');
+  });
+
+  it('does not offer a create-new row when the typed text exactly matches an existing item', () => {
+    render(<Combobox items={items} value={null} onChange={jest.fn()} onCreateNew={jest.fn()} />);
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByPlaceholderText('Søk…'), { target: { value: 'Ola Nordmann' } });
+
+    expect(screen.queryByText('Opprett «Ola Nordmann»')).not.toBeInTheDocument();
+  });
+
+  it('never offers a create-new row when onCreateNew is not given', () => {
+    render(<Combobox items={items} value={null} onChange={jest.fn()} />);
+
+    fireEvent.click(screen.getByRole('combobox'));
+    fireEvent.change(screen.getByPlaceholderText('Søk…'), { target: { value: 'Snowboard' } });
+
+    expect(screen.queryByText(/Opprett/)).not.toBeInTheDocument();
+    expect(screen.getByText('Ingen treff.')).toBeInTheDocument();
+  });
 });

@@ -9,8 +9,9 @@ Systemet dekker den daglige driften av en utlånsordning:
   forfalte lån
 - **Oppfølging** av forfalte lån, med automatisk oppdagelse av forfall,
   kontaktlogg mot foresatte og blokkering av nye utlån
-- **Rapporter** over antall utlån, fordeling på aldersgruppe, populært utstyr og
-  forsene leveringer
+- **Rapporter** over antall utlån i en periode og fordelt på aldersgruppe, hver
+  med levert i tide, levert for sent, ikke levert og fortsatt aktive - med
+  eksport til Excel og PDF
 
 ## Teknologi
 
@@ -32,15 +33,21 @@ Databasen kjøres i Docker, backend og frontend lokalt.
 ```bash
 git clone https://github.com/Ketas1/Fagprove.git
 cd Fagprove
-cp .env.example .env
+cp .env.example .env                         # fyll inn Auth0-verdiene
 
-docker compose up -d db                     # database på localhost:5433
-cd backend/SportForAlle.Api && dotnet run    # API på localhost:5080
-cd frontend && bun install && bun dev        # frontend på localhost:3000
+docker compose up -d db                      # database på localhost:5433
+
+dotnet tool install --global dotnet-ef       # engangsjobb
+cd backend && dotnet ef database update \
+  --project SportForAlle.Api --startup-project SportForAlle.Api
+
+cd SportForAlle.Api && dotnet run             # API på localhost:5080
+cd frontend && bun install && bun dev         # frontend på localhost:3000
 ```
 
-Forsiden viser status for API og database, slik at det er lett å se om alle tre
-lagene henger sammen. Full veiledning i
+**Første gang?** Følg [`docs/15-installasjon.md`](./docs/15-installasjon.md) i
+stedet - den tar hvert steg i rekkefølge, forklarer hva du skal se underveis, og
+dekker innlogging og koblingen av ansattprofil. Utviklingsmiljøet i detalj:
 [`docs/11-utviklingsmiljo.md`](./docs/11-utviklingsmiljo.md).
 
 ## Struktur

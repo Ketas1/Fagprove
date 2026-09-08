@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BorrowerBanSection } from '@/components/borrowers/borrower-ban-section';
 import { BorrowerNotesSection } from '@/components/borrowers/borrower-notes-section';
+import { GuardianCard } from '@/components/borrowers/guardian-card';
 import { StatusBadge } from '@/components/status-badge';
 import { BackendError, fetchBackend } from '@/lib/backend';
 import { calculateAge } from '@/lib/age';
@@ -78,16 +79,7 @@ export default async function BorrowerDetailPage({ params }: { params: Promise<{
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Foresatt</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-x-5 gap-y-4">
-            <Field label="Navn" value={guardian.name} />
-            <Field label="Telefon" value={guardian.phone} />
-            <Field label="E-post" value={guardian.email} />
-          </CardContent>
-        </Card>
+        <GuardianCard guardian={guardian} />
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

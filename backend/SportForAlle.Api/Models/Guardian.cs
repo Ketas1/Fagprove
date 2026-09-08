@@ -13,6 +13,11 @@ public partial class Guardian : AuditableEntity
     public const int EmailMaxLength = 320;
     public const int PhoneMaxLength = 30;
 
+    /// <summary>Placeholder values written when a guardian is anonymised. Kept valid so existing validation still holds.</summary>
+    public const string AnonymisedName = "Anonymisert foresatt";
+    public const string AnonymisedEmail = "anonymisert@ugyldig.invalid";
+    public const string AnonymisedPhone = "00000000";
+
     private readonly List<Borrower> _borrowers = [];
 
     /// <summary>Required by EF Core, which materialises entities without a public constructor.</summary>
@@ -47,7 +52,67 @@ public partial class Guardian : AuditableEntity
     /// <summary>Null if staff have not yet visually confirmed this guardian's ID in person.</summary>
     public DateTimeOffset? IdentityVerifiedAt { get; private set; }
 
+    /// <summary>Archived guardians are hidden from the working lists but fully restorable. See ADR-0026.</summary>
+    public DateTimeOffset? ArchivedAt { get; private set; }
+
+    /// <summary>Set once the contact details have been stripped. Irreversible.</summary>
+    public DateTimeOffset? AnonymisedAt { get; private set; }
+
+    public bool IsArchived => ArchivedAt is not null;
+
+    public bool IsAnonymised => AnonymisedAt is not null;
+
     public IReadOnlyCollection<Borrower> Borrowers => _borrowers;
+
+    public void Archive(IClock clock, Guid? staffId)
+    {
+        if (IsArchived)
+        {
+            throw new InvalidOperationException("This guardian is already archived.");
+        }
+
+        ArchivedAt = clock.UtcNow;
+        Touch(clock, staffId);
+    }
+
+    public void Restore(IClock clock, Guid? staffId)
+    {
+        if (IsAnonymised)
+        {
+            throw new InvalidOperationException("An anonymised guardian cannot be restored.");
+        }
+
+        if (!IsArchived)
+        {
+            throw new InvalidOperationException("This guardian is not archived.");
+        }
+
+        ArchivedAt = null;
+        Touch(clock, staffId);
+    }
+
+    /// <summary>
+    /// Strips name, email and phone. The row survives so the borrowers that
+    /// reference it stay valid, but nothing identifying remains - see
+    /// docs/09-lover-og-regler.md and ADR-0026. The placeholder contact values
+    /// are syntactically valid so existing validation and the email column
+    /// keep working.
+    /// </summary>
+    public void Anonymise(IClock clock, Guid? staffId)
+    {
+        if (IsAnonymised)
+        {
+            throw new InvalidOperationException("This guardian is already anonymised.");
+        }
+
+        Name = AnonymisedName;
+        Email = AnonymisedEmail;
+        Phone = AnonymisedPhone;
+        IdentityVerifiedAt = null;
+        AnonymisedAt = clock.UtcNow;
+        ArchivedAt ??= clock.UtcNow;
+        Touch(clock, staffId);
+    }
 
     public void Rename(string name, IClock clock, Guid? staffId)
     {

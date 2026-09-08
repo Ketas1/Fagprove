@@ -174,6 +174,58 @@ Det finnes ingen `Cors__AllowedOrigins` lenger: nettleseren kaller aldri
 backend-et direkte, bare frontendens egen proxy gjør, og det er ikke en
 cross-origin-forespørsel å tillate.
 
+## Utløpt token og fornyelse
+
+Dette er den fellen som faktisk slo til under utvikling 2026-09-08, og den er
+verdt å kjenne før man feilsøker en «uforklarlig» 500 på en beskyttet side.
+
+**Øktinformasjonskapselen og access-tokenet utløper uavhengig av hverandre.**
+`auth0.getSession()` dekrypterer bare informasjonskapselen; den sier ingenting
+om hvorvidt access-tokenet inni fortsatt er gyldig. Vakten i
+`app/dashboard/layout.tsx` sjekker nettopp `getSession()`, så den slipper
+brukeren gjennom lenge etter at tokenet er dødt. Feilen dukket derfor først opp
+nede i `fetchBackend`, midt i renderingen:
+
+```
+Error [AccessTokenError]: The access token has expired and a refresh token
+was not provided. The user needs to re-authenticate.
+  code: 'missing_refresh_token'
+```
+
+Resultatet var en 500 i utviklingsmodus og en «Noe gikk galt»-side i
+produksjon - altså «noe er ødelagt», når det riktige svaret er «logg inn
+igjen». Den ansatte hadde ingen vei videre uten å gå manuelt til
+`/auth/logout`, som er den eneste handlingen som tømmer informasjonskapselen og
+dermed utløser den ene tilstanden vakten faktisk håndterer (`!session`).
+
+**Håndteringen nå:** `fetchBackend` fanger `AccessTokenError` og sender
+brukeren til `/auth/login` i stedet for å kaste. Bare den feiltypen behandles
+slik - en manglende miljøvariabel eller en feilkonfigurert tenant er en ekte
+feil og får fortsatt bli synlig, framfor å bli forkledd som en
+innloggingsforespørsel. Proxy-ruten (`app/api/[...path]/route.ts`) gjorde
+allerede det tilsvarende, men svarer `401` i stedet, siden den kalles fra
+nettleseren og ikke kan omdirigere en `fetch`.
+
+**Hvorfor det ikke fantes noe refresh token.** SDK-ens `DEFAULT_SCOPES`
+inneholder allerede `offline_access` (bekreftet i
+`node_modules/@auth0/nextjs-auth0/dist/utils/constants.js`), så det er *ikke*
+et scope som mangler i koden. Auth0 nekter å utstede et refresh token når
+**«Allow Offline Access» er avslått på API-et** (Dashboard → Applications →
+APIs → `https://api.sportforalle.no` → Settings). Da fjernes `offline_access`
+stille fra de innvilgede scopene.
+
+> **Gjenstår før drift:** slå på «Allow Offline Access» på API-et. Uten det må
+> den ansatte logge inn på nytt hver gang access-tokenet utløper (Auth0 sin
+> standard er 24 timer). Med det fornyes tokenet i bakgrunnen. Merk at et
+> refresh token lagres ved innlogging, så eksisterende økter må logge ut og inn
+> igjen før de får ett.
+
+**Kjent begrensning:** hvis Auth0 skulle levere et ubrukelig token rett etter
+en vellykket innlogging, vil omdirigeringen over gå i løkke. Det krever en
+grunnleggende feilkonfigurert tenant - et ferskt token er gyldig per
+definisjon - men det er dette man skal se etter hvis innloggingssiden begynner
+å gjenta seg selv.
+
 ## Testing
 
 - **Kall uten token gir `401`:** dekket,
@@ -187,6 +239,11 @@ cross-origin-forespørsel å tillate.
   redirect til `/auth/login`). Ikke dekket av en automatisert frontend-test
   ennå - Server Component-redirects er upraktiske å teste med Jest alene, og
   end to end-testing er ikke satt opp, se `07-testing.md`.
+- **En innlogget bruker med utløpt token sendes til innlogging i stedet for å
+  få en 500:** dekket i `frontend/src/lib/backend.test.ts`, som også sjekker at
+  andre feil (for eksempel en manglende miljøvariabel) fortsatt kastes videre
+  i stedet for å bli forkledd som innlogging. Se «Utløpt token og fornyelse»
+  over.
 - **Et kall med `User`-token mot et `Staff`-endepunkt gir `403`:** ikke
   relevant ennå, siden roller ikke er bygget.
 - **Et kall fra en autentisert, men ukoblet bruker gir `403 StaffNotLinked`,

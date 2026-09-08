@@ -208,8 +208,8 @@ til" betyr `bunx shadcn@latest add <navn>`.
 | Filterfaner / visningsbytte (Tabell/Kanban) | `Tabs` (lagt til) | Den lyse pillen med hvit aktiv-bakgrunn i designet er standard `TabsList`/`TabsTrigger`-utseende |
 | Søkefelt | `SearchInput` (`frontend/src/components/ui/search-input.tsx`), på `InputGroup` | Filtrerer i minnet på allerede hentet data, ikke et nytt API-kall per tastetrykk. Har en "x"-knapp som bare vises når feltet ikke er tomt. Selve matchingen normaliserer søketeksten via `lib/search.ts` (`normalizeSearchQuery`), som blant annet fjerner en innledende `#` slik at et kopiert id/serienummer kan søkes opp med eller uten `#`-tegnet |
 | Nedtrekksfelt (tilstand, rolle) | `Select` (lagt til) | Beholdt for korte, faste enum-lister (tilstand ved retur/nytt utstyr) der et søkefelt ikke gir noen verdi |
-| Fritekstfelt (kontaktforsøk-resultat) | `Textarea` (lagt til) | Lagt til for fremtidig bruk - feltet vises ikke noe sted ennå siden kontaktforsøk mangler et endepunkt |
-| Låntaker-/utstyrs-/kategorivelger i skjema | `Combobox` (`frontend/src/components/ui/combobox.tsx`), på `Command`+`Popover` | Bygget 2026-09-07 som den ekte søkefelt-kombinasjonen designet viser - søkefelt øverst i lista, og seksjonsoverskrift per gruppe (`group`-feltet på hvert element) for tydeligere skille. Koblet inn overalt der det tidligere var en entitetsliste i en `Select`: "Registrer barn" (velg eksisterende foresatt, togglet mot "Ny foresatt" via `Tabs`), "Nytt utlån" (låntaker og utstyr - utstyr gruppert per kategori), og kategorivalget i "Nytt utstyr"/"Rediger utstyr". `Select` selv brukes ikke lenger til noen entitetsliste, kun til korte faste enum-verdier (se raden over) |
+| Fritekstfelt (kontaktforsøk-resultat) | `Textarea` (lagt til) | Brukt i skjemaet for å logge et kontaktforsøk manuelt, se `LoanContactAttemptsSection` |
+| Låntaker-/utstyrs-/kategorivelger i skjema | `Combobox` (`frontend/src/components/ui/combobox.tsx`), på `Command`+`Popover` | Bygget 2026-09-07 som den ekte søkefelt-kombinasjonen designet viser - søkefelt øverst i lista, og seksjonsoverskrift per gruppe (`group`-feltet på hvert element) for tydeligere skille. Koblet inn overalt der det tidligere var en entitetsliste i en `Select`: "Registrer barn" (velg eksisterende foresatt, togglet mot "Ny foresatt" via `Tabs`), "Nytt utlån" (låntaker og utstyr - utstyr gruppert per kategori), og kategorivalget i "Nytt utstyr"/"Rediger utstyr". `Select` selv brukes ikke lenger til noen entitetsliste, kun til korte faste enum-verdier (se raden over). Har en valgfri `onCreateNew`-snarvei (lagt til 2026-09-07): når det den ansatte har skrevet ikke matcher noe eksisterende element nøyaktig, vises en «Opprett «tekst»»-rad nederst i lista. Koblet inn for kategorivalget i "Nytt utstyr" - oppretter en toppnivå-kategori uten å forlate utstyrsskjemaet, og velger den automatisk. Ikke koblet inn for låntaker-/utstyrsvelgerne, siden å opprette et barn eller utstyr krever mer enn ett felt |
 | "..."-handlingsmeny på tabellrader | `DropdownMenu` (`frontend/src/components/ui/dropdown-menu.tsx`, ny - `@base-ui/react` har ingen ferdig `DropdownMenu` slik Radix har, så denne pakker `Menu`-primitiven i samme stil som `popover.tsx`), brukt av `RowActionsMenu` (`frontend/src/components/row-actions-menu.tsx`) | Tilbyr "Åpne" (lenke til full visning) og "Rediger" (kun når `onEdit` er gitt). **Ingen arkiver-handling** - ingen entitet støtter det ennå, se `05-api.md`. Koblet inn i alle tre tabeller nå (lån, utstyr, barn/foresatt). Samme mønster gjenbrukes for kategoriradenes "..."-meny i `category-tree.tsx` (tre alltid-synlige ikonknapper konsolidert til én), selv om den bruker `DropdownMenuItem` direkte i stedet for `RowActionsMenu` siden handlingene der er kategorispesifikke |
 | Datovelger (fødselsdato o.l.) | `DatePicker` (`frontend/src/components/ui/date-picker.tsx`), på `Calendar` (`react-day-picker`, ny avhengighet - se `12-lisenser-og-vilkar.md`) i `Popover` | Erstatter nettleserens innebygde `<input type="date">`, hvis år-navigasjon er treg (bla én måned av gangen). Bruker `captionLayout="dropdown"` slik at år/måned velges direkte. Samme streng-kontrakt (`"yyyy-MM-dd"`) som det innebygde feltet. Koblet inn i "Registrer barn" (2026-09-07) - dette er den faktiske fiksen for den trege år-blaingen utvikleren meldte inn |
 | Avkrysningsboks | `Checkbox` (`frontend/src/components/ui/checkbox.tsx`, ny - pakker `@base-ui/react/checkbox` i samme stil som `tabs.tsx`) | Bygget 2026-09-07 for "Identitet bekreftet"-feltet i "Registrer barn" (kun ved ny foresatt) - se `09-lover-og-regler.md` |
@@ -217,7 +217,7 @@ til" betyr `bunx shadcn@latest add <navn>`.
 | Blokkert-varsel, sen-retur-varsel | Egen liten komponent (ikke shadcn `Alert`) | Bygget inline i `new-loan-dialog.tsx`/`register-return-dialog.tsx` med statusfargene. Teksten kommer direkte fra API-ets `ProblemDetails.detail` (se `docs/05-api.md`), ikke hardkodet i frontend |
 | Steg-indikator (Aktiv → Forfalt → Levert) | **Ikke bygget - forenklet til `StatusBadge`** | Lån-detaljsiden viser bare statusmerkelappen, ikke den visuelle stegvisningen fra designet. Verdt å bygge som egen komponent senere hvis stegvisningen vurderes viktig nok til å forsvare arbeidet |
 | Bilde-opplasting (før/ved utlevering og retur) | Egen komponent, kun visuell | Vises som en stiplet boks tagget "Ikke bygget ennå" - se GDPR-kravet i `09-lover-og-regler.md` om at det er utstyret, aldri barnet, som skal fotograferes, når opplasting faktisk bygges |
-| Kommunikasjonslogg / hendelseslinje | `LoanContactAttemptsSection` (`frontend/src/components/loans/loan-contact-attempts-section.tsx`) | Bygget 2026-09-07 - liste over kontaktforsøk (metode, resultat, tidspunkt) og et skjema (metode-`Select` + resultat-`Textarea`) for å logge et nytt, koblet inn på lån-detaljsiden. Erstatter det som tidligere var en "Ikke bygget ennå"-plassholder |
+| Kommunikasjonslogg / hendelseslinje | `LoanContactAttemptsSection` (`frontend/src/components/loans/loan-contact-attempts-section.tsx`) | Bygget 2026-09-07 - liste over kontaktforsøk (metode, resultat, tidspunkt) og et skjema (metode-`Select` + resultat-`Textarea`) for å logge et nytt, koblet inn på lån-detaljsiden. Erstatter det som tidligere var en "Ikke bygget ennå"-plassholder. Samme komponent har også "Send oppfølgings-e-post" (kun synlig når lånet er forfalt), som sender via EmailJS og logger et kontaktforsøk automatisk - se [ADR-0022](./adr/0022-emailjs-server-side.md) |
 | Utestengelse (ban) på låntaker-detaljsiden | `BorrowerBanSection` (`frontend/src/components/borrowers/borrower-ban-section.tsx`) | Bygget 2026-09-07 - viser årsak og gebyrstatus når utestengt, med knapper for "Registrer gebyr betalt" og "Opphev utestengelse" (sistnevnte deaktivert til gebyret er betalt, se forretningsregel 8). Når aktiv: en "Utesteng låntaker"-knapp åpner en liten dialog med årsak-`Textarea` |
 | Notater på låntaker-detaljsiden | `BorrowerNotesSection` (`frontend/src/components/borrowers/borrower-notes-section.tsx`) | Bygget 2026-09-07 - liste over notater (nyeste først) og et enkelt skjema for å legge til et nytt. Plassholderteksten i skjemaet peker til "saklig og faktabasert"-retningslinjen i `09-lover-og-regler.md` |
 | Bekreft tap/skade | `MarkLostButton` (`frontend/src/components/loans/mark-lost-button.tsx`) | Bygget 2026-09-07 - egen bekreftelsesdialog før kallet gjøres, siden overgangen er terminal og ikke kan angres (setter lånet `Lost` og utstyret `WrittenOff`) |
@@ -315,6 +315,43 @@ hvilke alternativer som ble vurdert. Mønsteret er bevisst enkelt:
   dialogen, akkurat som det blokkerte utlånet.
 - Treets dybde er ikke begrenset i grensesnittet heller - det følger av at
   det ikke er begrenset i domenet (se ADR-0021), ikke en egen frontend-regel.
+
+## Rapportsiden (ikke i det opprinnelige designet)
+
+Designcanvaset har 15 skjermbilder, og **ingen av dem er en rapportside**.
+Siden (`app/dashboard/reports/page.tsx`, bygget 2026-09-07) er derfor satt
+sammen av tokens og komponenter som allerede fantes, på samme måte som
+kategoritreet over - ikke oversatt fra en fasit. Den som senere tegner et
+design for denne siden bør vite at rekkefølgen og inndelingen under er et valg,
+ikke noe som er godkjent visuelt.
+
+Oppbygging, ovenfra og ned:
+
+- **Filterkort.** Periode som `Select` (siste 30 dager / 6 måneder / 12
+  måneder / hele historikken / egendefinert), oppdeling som `Tabs`
+  (dag/uke/måned), og to `DatePicker` som bare vises ved egendefinert periode.
+  Alle valg skrives til URL-en og leses tilbake av server-komponenten, så en
+  rapport er en lenke som kan bokmerkes eller sendes videre - se
+  [ADR-0020](./adr/0020-server-lesing-klient-skriving.md).
+- **Fem nøkkeltallskort** på én rad, i leserekkefølge: Utlån totalt, Levert i
+  tide, Levert for sent, Ikke levert, Fortsatt aktive. De fire siste bruker
+  statusfargene (`success`, `warning`, `danger`, `info`) fra tabellen lenger
+  oppe, og viser sin andel av totalen under tallet.
+- **Søylediagram** over utvikling i perioden.
+- **Tabell per aldersgruppe** med de samme fem tallene og en `Sum`-rad, slik at
+  leseren kan kontrollere at tallene går opp.
+
+| Komponent | Grunnlag | Merknad |
+| --- | --- | --- |
+| Søylediagram | `recharts` (ny avhengighet, MIT - se `12-lisenser-og-vilkar.md`) | `components/reports/loan-trend-chart.tsx`. Søylene bruker `var(--primary)` og aksene `var(--muted-foreground)`, så diagrammet arver paletten i stedet for å ta med seg Recharts sine egne standardfarger. shadcn sin `chart`-innpakning ble **ikke** lagt til - den er bygget for Radix, og dette prosjektet bruker `@base-ui/react` (se ADR-0016), så komponenten er skrevet direkte mot Recharts |
+| Eksportknapp | `DropdownMenu` (finnes) | `components/reports/report-export-button.tsx` - «Last ned Excel» og «Last ned PDF». Begge filene lages i nettleseren av tall siden allerede har. Excel-fila har tre ark (Sammendrag, Aldersgrupper, Utvikling) med ekte tall- og datotyper; CSV ble prøvd først og forkastet fordi Excel gjorde om aldersgruppen «3-7» til en dato - se [ADR-0023](./adr/0023-rapporteksport.md) |
+
+**Feiltilstand som faktisk kan oppstå her:** en lang periode med oppdeling per
+dag overskrider API-ets grense på 400 søyler og gir `400`. Siden fanger den ene
+statusen spesifikt og viser «Perioden gir for mange søyler med denne
+oppdelingen» i diagramkortet, mens resten av rapporten fortsatt vises. Å bytte
+periode nullstiller samtidig oppdelingen til den som passer, slik at
+tilstanden er vanskelig å havne i ved vanlig bruk.
 
 ## Tilstander som ikke er designet ennå
 

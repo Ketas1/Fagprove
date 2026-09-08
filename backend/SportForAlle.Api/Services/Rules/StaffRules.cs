@@ -10,6 +10,21 @@ public static class StaffRules
     /// re-linking an already-linked profile would silently hand access to
     /// whoever calls link-me next.
     /// </summary>
+    /// <summary>
+    /// An employee must not delete the profile their own Auth0 account is
+    /// linked to - that would lock them straight out of the system, since
+    /// RequireLinkedStaffMiddleware rejects every request from an unlinked
+    /// account.
+    /// </summary>
+    public static void EnsureNotDeletingOwnProfile(Staff staff, string? currentAuth0Subject)
+    {
+        if (currentAuth0Subject is not null && staff.Auth0UserId == currentAuth0Subject)
+        {
+            throw new DomainConflictException(
+                "CannotDeleteOwnStaffProfile", "Du kan ikke slette din egen ansattprofil.");
+        }
+    }
+
     public static void EnsureNotAlreadyLinked(Staff staff)
     {
         if (staff.Auth0UserId is not null)

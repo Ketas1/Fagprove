@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { AlertTriangle, Check, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -37,6 +37,21 @@ export function NewEquipmentDialog({
   const [condition, setCondition] = useState<EquipmentCondition>('New');
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
+  const [extraCategories, setExtraCategories] = useState<EquipmentCategory[]>([]);
+  const [creatingCategory, setCreatingCategory] = useState(false);
+
+  // Newly created categories are merged in immediately so the just-created
+  // one shows up without waiting for router.refresh() to land - deduped by
+  // id in case the refresh arrives while this dialog is still open.
+  const allCategories = useMemo(() => {
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    for (const extra of extraCategories) {
+      if (!byId.has(extra.id)) {
+        byId.set(extra.id, extra);
+      }
+    }
+    return [...byId.values()];
+  }, [categories, extraCategories]);
 
   function reset() {
     setName('');
@@ -44,6 +59,32 @@ export function NewEquipmentDialog({
     setCategoryId(initialCategoryId ?? '');
     setCondition('New');
     setProblem(null);
+    setExtraCategories([]);
+  }
+
+  /** The category Combobox's "create new" shortcut - always a top-level category, matching CreateCategoryDialog's own default. */
+  async function handleCreateCategory(categoryName: string) {
+    setCreatingCategory(true);
+    setProblem(null);
+
+    const response = await fetch('/api/equipment-categories', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: categoryName }),
+    });
+
+    setCreatingCategory(false);
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as ProblemDetails | null;
+      setProblem(body ?? { detail: 'Kategorien kunne ikke opprettes.' });
+      return;
+    }
+
+    const created = (await response.json()) as EquipmentCategory;
+    setExtraCategories((prev) => [...prev, created]);
+    setCategoryId(created.id);
+    router.refresh();
   }
 
   async function handleSubmit() {
@@ -107,12 +148,15 @@ export function NewEquipmentDialog({
                 Kategori <span className="text-status-danger-fg">*</span>
               </label>
               <Combobox
-                items={categories.map((category) => ({ id: category.id, label: category.name }))}
+                items={allCategories.map((category) => ({ id: category.id, label: category.name }))}
                 value={categoryId || null}
                 onChange={(value) => setCategoryId(value ?? '')}
                 placeholder="Velg kategori…"
                 searchPlaceholder="Søk kategori…"
                 emptyText="Ingen kategorier funnet."
+                onCreateNew={handleCreateCategory}
+                createLabel={(query) => `Opprett kategori «${query}»`}
+                disabled={creatingCategory}
               />
             </div>
             <div className="flex flex-col gap-1.5">

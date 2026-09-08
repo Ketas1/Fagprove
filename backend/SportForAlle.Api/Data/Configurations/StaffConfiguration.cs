@@ -14,6 +14,17 @@ public class StaffConfiguration : IEntityTypeConfiguration<Staff>
             .IsRequired()
             .HasMaxLength(Staff.NameMaxLength);
 
+        // Nullable on purpose - see Staff.NormaliseOptional. Existing rows
+        // predate these columns and legitimately have nothing recorded.
+        builder.Property(staff => staff.JobTitle)
+            .HasMaxLength(Staff.JobTitleMaxLength);
+
+        builder.Property(staff => staff.Email)
+            .HasMaxLength(Staff.EmailMaxLength);
+
+        builder.Property(staff => staff.Phone)
+            .HasMaxLength(Staff.PhoneMaxLength);
+
         builder.Property(staff => staff.Auth0UserId)
             .HasMaxLength(Staff.Auth0UserIdMaxLength);
 

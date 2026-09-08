@@ -1,10 +1,11 @@
 import Link from 'next/link';
-import { AlertTriangle, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { NotBuiltYetBadge } from '@/components/not-built-yet';
+import { StatusBadge } from '@/components/status-badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { fetchBackend } from '@/lib/backend';
 import { calculateAge } from '@/lib/age';
+import { contactStatusInfo } from '@/lib/contact-status';
 import { effectiveLoanStatus } from '@/lib/loan-status';
 import type { Borrower } from '@/types/borrower';
 import type { Loan } from '@/types/loan';
@@ -66,76 +67,64 @@ export default async function OversiktPage() {
         </Card>
       </div>
 
-      <div className="grid grid-cols-[1.7fr_1fr] items-start gap-6">
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Utlån som krever oppfølging</CardTitle>
-            <Link
-              href="/dashboard/loans?status=Overdue"
-              className="flex items-center gap-1 text-[12.5px] font-medium text-primary"
-            >
-              Se alle utlån <ArrowRight className="size-3.5" />
-            </Link>
-          </CardHeader>
-          <CardContent>
-            {overdue.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Ingen utlån krever oppfølging akkurat nå.
-              </p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Låntaker</TableHead>
-                    <TableHead>Utstyr</TableHead>
-                    <TableHead>Forfalt siden</TableHead>
-                    <TableHead>Kontaktstatus</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {overdue.map(({ loan }) => {
-                    const borrower = borrowersById.get(loan.borrowerId);
-                    const daysOverdue = Math.floor(
-                      (now.getTime() - new Date(loan.dueDate).getTime()) / (1000 * 60 * 60 * 24),
-                    );
+      <Card>
+        <CardHeader className="flex-row items-center justify-between">
+          <CardTitle>Utlån som krever oppfølging</CardTitle>
+          <Link
+            href="/dashboard/loans?status=Overdue"
+            className="flex items-center gap-1 text-[12.5px] font-medium text-primary"
+          >
+            Se alle utlån <ArrowRight className="size-3.5" />
+          </Link>
+        </CardHeader>
+        <CardContent>
+          {overdue.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Ingen utlån krever oppfølging akkurat nå.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Låntaker</TableHead>
+                  <TableHead>Utstyr</TableHead>
+                  <TableHead>Forfalt siden</TableHead>
+                  <TableHead>Kontaktstatus</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {overdue.map(({ loan }) => {
+                  const borrower = borrowersById.get(loan.borrowerId);
+                  const daysOverdue = Math.floor(
+                    (now.getTime() - new Date(loan.dueDate).getTime()) / (1000 * 60 * 60 * 24),
+                  );
+                  const contact = contactStatusInfo(loan);
 
-                    return (
-                      <TableRow key={loan.id}>
-                        <TableCell>
-                          <Link href={`/dashboard/loans/${loan.id}`} className="font-medium hover:underline">
-                            {loan.borrowerName}
-                          </Link>
-                          {borrower && (
-                            <div className="text-xs text-muted-foreground">
-                              {calculateAge(borrower.dateOfBirth, now)} år
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>{loan.equipmentName}</TableCell>
-                        <TableCell>{daysOverdue} dager</TableCell>
-                        <TableCell>
-                          <NotBuiltYetBadge reason="Kontaktforsøk-logging finnes ikke i API-et ennå." />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle>Siste hendelser</CardTitle>
-            <NotBuiltYetBadge reason="Krever et eget aktivitetslogg-endepunkt som ikke finnes i API-et ennå. Se docs/13-frontend-designsystem.md." />
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-2 py-6 text-center text-sm text-muted-foreground">
-            <AlertTriangle className="size-5" />
-            Denne oversikten viser hendelser fra en aktivitetslogg som ikke er bygget ennå.
-          </CardContent>
-        </Card>
-      </div>
+                  return (
+                    <TableRow key={loan.id}>
+                      <TableCell>
+                        <Link href={`/dashboard/loans/${loan.id}`} className="font-medium hover:underline">
+                          {loan.borrowerName}
+                        </Link>
+                        {borrower && (
+                          <div className="text-xs text-muted-foreground">
+                            {calculateAge(borrower.dateOfBirth, now)} år
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell>{loan.equipmentName}</TableCell>
+                      <TableCell>{daysOverdue} dager</TableCell>
+                      <TableCell>
+                        <StatusBadge tone={contact.tone}>{contact.label}</StatusBadge>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

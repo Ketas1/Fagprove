@@ -27,7 +27,9 @@ public class Loan : AuditableEntity
             throw new ArgumentException("Loan due date must be after the start date.", nameof(dueDate));
         }
 
-        DueDate = dueDate;
+        // Normalised to UTC: the instant is unchanged, but Npgsql refuses to
+        // write any offset other than 0 to a 'timestamp with time zone'.
+        DueDate = dueDate.ToUniversalTime();
         Status = LoanStatus.Active;
     }
 
@@ -54,8 +56,16 @@ public class Loan : AuditableEntity
     /// ADR-0011, and what business rule 2 (blocking new loans) must use -
     /// it cannot depend on a background job having already run.
     /// </summary>
+    /// <remarks>
+    /// Compares calendar dates (UTC), not exact instants - a loan due
+    /// "7/9" is not overdue until "8/9" begins, regardless of what
+    /// time-of-day <see cref="DueDate"/> happens to carry. Comparing exact
+    /// instants would make a loan due at, say, 00:00 on its due date
+    /// overdue for almost the entire day it is actually still due - see the
+    /// 2026-09-07 addendum to ADR-0011.
+    /// </remarks>
     public bool IsOverdueNow(IClock clock) =>
-        Status == LoanStatus.Overdue || (Status == LoanStatus.Active && clock.UtcNow > DueDate);
+        Status == LoanStatus.Overdue || (Status == LoanStatus.Active && clock.UtcNow.UtcDateTime.Date > DueDate.UtcDateTime.Date);
 
     /// <summary>
     /// The write-time half of ADR-0011: materialises <see cref="Status"/> to
@@ -71,15 +81,55 @@ public class Loan : AuditableEntity
         }
     }
 
-    /// <summary>Equipment handed back. Computes <see cref="DaysLate"/> against the due date.</summary>
+    /// <summary>
+    /// Equipment handed back. Computes <see cref="DaysLate"/> against the due
+    /// date - by calendar date, same as <see cref="IsOverdueNow"/>, so a
+    /// return on the due date itself is never "late".
+    /// </summary>
     public void Return(IClock clock, Guid? staffId)
     {
         RequireOpen();
 
         DateTimeOffset now = clock.UtcNow;
         ReturnedAt = now;
-        DaysLate = now > DueDate ? (now.Date - DueDate.Date).Days : 0;
+        DaysLate = now.UtcDateTime.Date > DueDate.UtcDateTime.Date ? (now.UtcDateTime.Date - DueDate.UtcDateTime.Date).Days : 0;
         Status = LoanStatus.Returned;
+        Touch(clock, staffId);
+    }
+
+    /// <summary>
+    /// Corrects the facts of an open loan that was registered wrongly. Only
+    /// Active and Overdue loans may be corrected - RequireOpen() refuses a
+    /// Returned or Lost one, because DaysLate and the borrower's late-return
+    /// counter were already computed from the old values and cannot be
+    /// recomputed from here. See ADR-0025.
+    ///
+    /// Status is reset to Active and then re-derived by the caller through
+    /// RefreshOverdueStatus, so extending a due date past today moves an
+    /// Overdue loan back to Active rather than leaving it stale.
+    /// </summary>
+    public void Correct(
+        Guid borrowerId,
+        Guid equipmentId,
+        DateTimeOffset startedAt,
+        DateTimeOffset dueDate,
+        IClock clock,
+        Guid? staffId)
+    {
+        RequireOpen();
+
+        if (dueDate <= startedAt)
+        {
+            throw new ArgumentException("Loan due date must be after the start date.", nameof(dueDate));
+        }
+
+        BorrowerId = borrowerId;
+        EquipmentId = equipmentId;
+
+        // Same UTC normalisation as the constructor - see the comment there.
+        StartedAt = startedAt.ToUniversalTime();
+        DueDate = dueDate.ToUniversalTime();
+        Status = LoanStatus.Active;
         Touch(clock, staffId);
     }
 

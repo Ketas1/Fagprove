@@ -28,4 +28,29 @@ public class GuardiansController(GuardianService service) : ControllerBase
     public async Task<ActionResult<GuardianResponse>> UpdateAsync(
         Guid id, UpdateGuardianRequest request, CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(id, request, cancellationToken));
+
+    /// <summary>
+    /// Hard delete. Refused with <c>409 GuardianHasBorrowers</c> while any
+    /// child still points at this guardian - business rule 1 says a child
+    /// cannot exist without one. See ADR-0026.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await service.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/archive")]
+    public async Task<ActionResult<GuardianResponse>> ArchiveAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.ArchiveAsync(id, cancellationToken));
+
+    [HttpDelete("{id:guid}/archive")]
+    public async Task<ActionResult<GuardianResponse>> RestoreAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.RestoreAsync(id, cancellationToken));
+
+    /// <summary>Irreversible. Strips name, email and phone, and deletes the contact attempts.</summary>
+    [HttpPost("{id:guid}/anonymise")]
+    public async Task<ActionResult<GuardianResponse>> AnonymiseAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.AnonymiseAsync(id, cancellationToken));
 }

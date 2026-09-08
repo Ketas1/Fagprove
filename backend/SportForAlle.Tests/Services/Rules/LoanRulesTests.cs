@@ -60,6 +60,28 @@ public class LoanRulesTests
     }
 
     [Fact]
+    public void EnsureLoanIsOverdue_allows_an_overdue_loan()
+    {
+        FakeClock clock = new();
+        Loan loan = new(Guid.NewGuid(), Guid.NewGuid(), clock.UtcNow + TimeSpan.FromDays(1), clock, null);
+        clock.Advance(TimeSpan.FromDays(2));
+
+        LoanRules.EnsureLoanIsOverdue(loan, clock);
+    }
+
+    [Fact]
+    public void EnsureLoanIsOverdue_rejects_a_loan_that_is_not_yet_due()
+    {
+        FakeClock clock = new();
+        Loan loan = new(Guid.NewGuid(), Guid.NewGuid(), clock.UtcNow + TimeSpan.FromDays(14), clock, null);
+
+        DomainConflictException exception = Assert.Throws<DomainConflictException>(
+            () => LoanRules.EnsureLoanIsOverdue(loan, clock));
+
+        Assert.Equal("LoanNotOverdue", exception.Reason);
+    }
+
+    [Fact]
     public void EnsureEquipmentAvailable_allows_available_equipment()
     {
         FakeClock clock = new();

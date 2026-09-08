@@ -79,9 +79,17 @@ builder.Services.AddScoped<BorrowerService>();
 builder.Services.AddScoped<EquipmentService>();
 builder.Services.AddScoped<LoanService>();
 builder.Services.AddScoped<ReportService>();
+builder.Services.AddScoped<FollowUpEmailSender>();
 
 builder.Services.Configure<OverdueCheckOptions>(builder.Configuration.GetSection(OverdueCheckOptions.SectionName));
 builder.Services.AddHostedService<OverdueLoanBackgroundService>();
+
+builder.Services.Configure<EmailJsOptions>(builder.Configuration.GetSection(EmailJsOptions.SectionName));
+
+// Named client, not injected directly - see docs/adr/0022-emailjs-server-side.md
+// and FollowUpEmailSender's own doc comment for why: tests substitute a fake
+// handler for this exact name so `dotnet test` never reaches the real API.
+builder.Services.AddHttpClient("EmailJs", client => client.BaseAddress = new Uri("https://api.emailjs.com/"));
 
 string? connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 

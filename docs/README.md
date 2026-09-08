@@ -58,10 +58,12 @@ oversettelsene.
 | [07-testing.md](./07-testing.md) | Teststrategi, testnivåer og hva som testes hvor | Påbegynt |
 | [08-sikkerhet.md](./08-sikkerhet.md) | Sikkerhetstiltak og trusselvurdering | Påbegynt |
 | [09-lover-og-regler.md](./09-lover-og-regler.md) | GDPR og personvern, med vekt på data om barn | Ferdig |
-| [10-bruk-av-systemet.md](./10-bruk-av-systemet.md) | Brukerveiledning for ansatte | Ikke påbegynt |
+| [10-bruk-av-systemet.md](./10-bruk-av-systemet.md) | Brukerveiledning for ansatte | Tekst ferdig, skjermbilder mangler |
 | [11-utviklingsmiljo.md](./11-utviklingsmiljo.md) | Prosjektoppsett, teknologistack, filstruktur, Docker og CI | Ferdig |
 | [12-lisenser-og-vilkar.md](./12-lisenser-og-vilkar.md) | Pakkelisenser og vilkår for eksterne tjenester | Påbegynt |
 | [13-frontend-designsystem.md](./13-frontend-designsystem.md) | Typografi, farger, komponenter og tilstander - regelsettet bak alle sider | Ferdig |
+| [14-utviklerhandbok.md](./14-utviklerhandbok.md) | Inngangsport for den som overtar: status per lag, kjente feller, veien til drift og mulige neste steg | Ferdig |
+| [15-installasjon.md](./15-installasjon.md) | Steg-for-steg-oppskrift for å få systemet til å kjøre lokalt og logge inn, uten forkunnskap | Ferdig |
 | [adr/](./adr/) | Architecture Decision Records - alle tekniske valg | Løpende |
 | [arbeidslogg.md](./arbeidslogg.md) | Daglig arbeidslogg - grunnlag for sluttrapporten | Løpende |
 

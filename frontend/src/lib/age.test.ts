@@ -18,10 +18,10 @@ describe('calculateAge', () => {
 
 describe('ageGroup', () => {
   it.each([
-    [3, '3-6'],
-    [6, '3-6'],
-    [7, '7-12'],
-    [12, '7-12'],
+    [3, '3-7'],
+    [7, '3-7'],
+    [8, '8-12'],
+    [12, '8-12'],
     [13, '13-18'],
     [18, '13-18'],
   ] as const)('maps age %i to group %s', (age, expected) => {

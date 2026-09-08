@@ -37,6 +37,21 @@ public class LoanTests
     }
 
     [Fact]
+    public void IsOverdueNow_is_false_when_due_earlier_the_same_calendar_day()
+    {
+        // The reported bug: a loan due "today" at any earlier time-of-day
+        // must not read as overdue while it is still "today" - only the
+        // calendar date matters, not the stored time. See the 2026-09-07
+        // addendum to ADR-0011.
+        FakeClock clock = new(new DateTimeOffset(2026, 1, 2, 8, 0, 0, TimeSpan.Zero));
+        Loan loan = new(Guid.NewGuid(), Guid.NewGuid(), new DateTimeOffset(2026, 1, 2, 9, 0, 0, TimeSpan.Zero), clock, null);
+
+        clock.Set(new DateTimeOffset(2026, 1, 2, 23, 0, 0, TimeSpan.Zero));
+
+        Assert.False(loan.IsOverdueNow(clock));
+    }
+
+    [Fact]
     public void IsOverdueNow_is_true_once_the_due_date_has_passed_even_without_a_background_job()
     {
         FakeClock clock = new();
