@@ -27,6 +27,17 @@ public class LoansController(LoanService service) : ControllerBase
         return CreatedAtAction(nameof(GetByIdAsync), new { id = response.Id }, response);
     }
 
+    /// <summary>
+    /// Corrects an open loan. <c>409 LoanAlreadyClosed</c> for a Returned or
+    /// Lost loan, <c>409 BorrowerBanned</c>/<c>BorrowerHasOverdueLoan</c> if
+    /// the new borrower is not eligible, <c>409 EquipmentNotAvailable</c> if
+    /// the new equipment is already out.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<LoanResponse>> UpdateAsync(
+        Guid id, UpdateLoanRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.UpdateAsync(id, request, cancellationToken));
+
     [HttpPost("{id:guid}/return")]
     public async Task<ActionResult<LoanResponse>> ReturnAsync(
         Guid id, ReturnLoanRequest request, CancellationToken cancellationToken) =>

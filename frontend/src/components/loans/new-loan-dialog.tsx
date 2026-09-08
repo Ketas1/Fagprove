@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { AlertTriangle, Camera, Check, Plus } from 'lucide-react';
+import { AlertTriangle, Check, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -14,7 +14,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Combobox } from '@/components/ui/combobox';
-import { NotBuiltYetBadge } from '@/components/not-built-yet';
 import { calculateAge } from '@/lib/age';
 import type { Borrower } from '@/types/borrower';
 import type { Equipment } from '@/types/equipment';
@@ -150,17 +149,6 @@ export function NewLoanDialog({ borrowers, equipment }: { borrowers: Borrower[];
               onChange={(event) => setDueDate(event.target.value)}
               className="h-9 rounded-md border border-input bg-transparent px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
             />
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[12.5px] font-medium text-muted-foreground">Bilde av utstyr før utlån</span>
-              <NotBuiltYetBadge reason="Det finnes ingen filopplasting eller bildelagring i API-et ennå - se docs/13-frontend-designsystem.md." />
-            </div>
-            <div className="flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed text-muted-foreground">
-              <Camera className="size-5" />
-              <span className="text-[11.5px]">Ikke koblet til lagring ennå</span>
-            </div>
           </div>
         </div>
 

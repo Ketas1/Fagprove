@@ -426,7 +426,96 @@ public class LoansEndpointTests(WebApplicationFactory<Program> factory)
         Assert.Equal("LoanAlreadyClosed", problem?.Reason);
     }
 
-    private sealed record LoanPayload(Guid Id, string Status, int? DaysLate);
+    [Fact]
+    public async Task GetAll_reports_a_new_loan_as_never_contacted()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload registered = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+
+        List<LoanPayload>? loans = await client.GetFromJsonAsync<List<LoanPayload>>("/api/loans");
+
+        LoanPayload listed = Assert.Single(loans!, loan => loan.Id == registered.Id);
+        Assert.Equal(0, listed.ContactAttemptCount);
+        Assert.Null(listed.LastContactedAt);
+    }
+
+    [Fact]
+    public async Task GetById_counts_contact_attempts_and_reports_the_most_recent()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload loan = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+        DateTimeOffset beforeLogging = DateTimeOffset.UtcNow.AddSeconds(-5);
+
+        await client.PostAsJsonAsync($"/api/loans/{loan.Id}/contact-attempts", new
+        {
+            Method = "Phone",
+            Outcome = "Ingen svar.",
+        });
+        await client.PostAsJsonAsync($"/api/loans/{loan.Id}/contact-attempts", new
+        {
+            Method = "Email",
+            Outcome = "Sendt påminnelse.",
+        });
+
+        LoanPayload? fetched = await client.GetFromJsonAsync<LoanPayload>($"/api/loans/{loan.Id}");
+
+        Assert.Equal(2, fetched!.ContactAttemptCount);
+        Assert.NotNull(fetched.LastContactedAt);
+        Assert.True(fetched.LastContactedAt >= beforeLogging);
+    }
+
+    [Fact]
+    public async Task Return_response_carries_the_contact_attempt_count()
+    {
+        await using AuthenticatedWebApplicationFactory<Program> authenticatedFactory = new();
+        HttpClient client = authenticatedFactory.CreateClient();
+        Guid borrowerId = await ApiTestDataBuilder.CreateBorrowerAsync(client);
+        Guid equipmentId = await ApiTestDataBuilder.CreateEquipmentAsync(client);
+        HttpResponseMessage registerResponse = await client.PostAsJsonAsync("/api/loans", new
+        {
+            BorrowerId = borrowerId,
+            EquipmentId = equipmentId,
+            DueDate = DateTimeOffset.UtcNow.AddDays(14),
+        });
+        LoanPayload loan = (await registerResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+        await client.PostAsJsonAsync($"/api/loans/{loan.Id}/contact-attempts", new
+        {
+            Method = "Phone",
+            Outcome = "Ingen svar.",
+        });
+
+        HttpResponseMessage returnResponse =
+            await client.PostAsJsonAsync($"/api/loans/{loan.Id}/return", new { Condition = "Good" });
+
+        LoanPayload returned = (await returnResponse.Content.ReadFromJsonAsync<LoanPayload>())!;
+        Assert.Equal(1, returned.ContactAttemptCount);
+        Assert.NotNull(returned.LastContactedAt);
+    }
+
+    private sealed record LoanPayload(
+        Guid Id,
+        string Status,
+        int? DaysLate,
+        int ContactAttemptCount,
+        DateTimeOffset? LastContactedAt);
 
     private sealed record EquipmentStatusPayload(Guid Id, string Status);
 

@@ -31,6 +31,31 @@ public class BorrowersController(BorrowerService service) : ControllerBase
         Guid id, UpdateBorrowerRequest request, CancellationToken cancellationToken) =>
         Ok(await service.UpdateAsync(id, request, cancellationToken));
 
+    /// <summary>
+    /// Hard delete. Refused with <c>409 BorrowerHasHistory</c> if any loan,
+    /// ban or note references the borrower - those are archived and later
+    /// anonymised instead, see ADR-0026.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await service.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
+
+    [HttpPost("{id:guid}/archive")]
+    public async Task<ActionResult<BorrowerResponse>> ArchiveAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.ArchiveAsync(id, cancellationToken));
+
+    [HttpDelete("{id:guid}/archive")]
+    public async Task<ActionResult<BorrowerResponse>> RestoreAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.RestoreAsync(id, cancellationToken));
+
+    /// <summary>Irreversible. Answers a GDPR article 17 request for a borrower who has loan history.</summary>
+    [HttpPost("{id:guid}/anonymise")]
+    public async Task<ActionResult<BorrowerResponse>> AnonymiseAsync(Guid id, CancellationToken cancellationToken) =>
+        Ok(await service.AnonymiseAsync(id, cancellationToken));
+
     [HttpGet("{id:guid}/ban")]
     public async Task<ActionResult<BanResponse>> GetCurrentBanAsync(Guid id, CancellationToken cancellationToken) =>
         Ok(await service.GetCurrentBanAsync(id, cancellationToken));

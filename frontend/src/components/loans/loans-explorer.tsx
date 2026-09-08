@@ -8,9 +8,11 @@ import { StatusBadge } from '@/components/status-badge';
 import { SearchInput } from '@/components/ui/search-input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { EditLoanDialog } from '@/components/loans/edit-loan-dialog';
 import { NewLoanDialog } from '@/components/loans/new-loan-dialog';
 import { calculateAge } from '@/lib/age';
 import { effectiveLoanStatus } from '@/lib/loan-status';
+import { contactStatusInfo } from '@/lib/contact-status';
 import { loanStatusInfo } from '@/lib/status-labels';
 import { normalizeSearchQuery } from '@/lib/search';
 import type { Borrower } from '@/types/borrower';
@@ -68,6 +70,7 @@ export function LoansExplorer({
   initialStatusFilter: StatusFilter;
 }) {
   const router = useRouter();
+  const [editingLoan, setEditingLoan] = useState<Loan | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatusFilter);
   const [dateRangeFilter, setDateRangeFilter] = useState<DateRangeFilter>('all');
@@ -170,6 +173,10 @@ export function LoansExplorer({
           {filtered.map(({ loan, status }) => {
             const borrower = borrowersById.get(loan.borrowerId);
             const { label, tone } = loanStatusInfo(status);
+            const contact = contactStatusInfo(loan);
+            // Only open loans are editable - a returned or lost loan is
+            // history the reports are built on, and the backend refuses it.
+            const isOpenLoan = status === 'Active' || status === 'Overdue';
             const detailHref = `/dashboard/loans/${loan.id}`;
 
             return (
@@ -196,15 +203,31 @@ export function LoansExplorer({
                 <TableCell>
                   <StatusBadge tone={tone}>{label}</StatusBadge>
                 </TableCell>
-                <TableCell className="text-[12.5px] text-muted-foreground">Se detaljer</TableCell>
+                <TableCell>
+                  <StatusBadge tone={contact.tone}>{contact.label}</StatusBadge>
+                </TableCell>
                 <TableCell onClick={(event) => event.stopPropagation()}>
-                  <RowActionsMenu openHref={detailHref} label={`Handlinger for ${loan.borrowerName}`} />
+                  <RowActionsMenu
+                    openHref={detailHref}
+                    onEdit={isOpenLoan ? () => setEditingLoan(loan) : undefined}
+                    label={`Handlinger for ${loan.borrowerName}`}
+                  />
                 </TableCell>
               </TableRow>
             );
           })}
         </TableBody>
       </Table>
+      {editingLoan && (
+        <EditLoanDialog
+          loan={editingLoan}
+          borrowers={borrowers}
+          equipment={equipment}
+          open
+          onOpenChange={(open) => !open && setEditingLoan(null)}
+        />
+      )}
+
       {/* Kanban view render - commented out alongside the toggle above. */}
       {/* {view === 'kanban' && <LoansKanban loans={filtered} />} */}
     </div>

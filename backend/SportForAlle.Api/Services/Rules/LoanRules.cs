@@ -35,6 +35,21 @@ public static class LoanRules
         }
     }
 
+    /// <summary>
+    /// A Returned or Lost loan is history the reports are built on. Its
+    /// DaysLate and the borrower's late-return counter were computed at the
+    /// time it closed, so re-opening it for edits would silently invalidate
+    /// both. Notes can still be added to a closed loan - see ADR-0025.
+    /// </summary>
+    public static void EnsureLoanCanBeCorrected(Loan loan)
+    {
+        if (loan.Status is LoanStatus.Returned or LoanStatus.Lost)
+        {
+            throw new DomainConflictException(
+                "LoanAlreadyClosed", "Utlånet er avsluttet og kan ikke endres.");
+        }
+    }
+
     public static void EnsureEquipmentAvailable(Equipment equipment)
     {
         if (equipment.Status != EquipmentStatus.Available)

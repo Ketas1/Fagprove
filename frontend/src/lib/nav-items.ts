@@ -1,6 +1,6 @@
-import { ChartColumn, FileText, Home, Package, ShieldCheck, Tag, Users } from 'lucide-react';
+import { ChartColumn, Home, Package, ShieldCheck, Tag, Users } from 'lucide-react';
 
-/// The main sections plus the audit log, in the order the design's
+/// The main sections, in the order the design's
 /// sidebar shows them. Shared between the sidebar nav and the header title
 /// so both read the current section from the same list.
 export const navItems = [
@@ -11,7 +11,6 @@ export const navItems = [
   // Not one of the design's 15 artboards - see docs/13-frontend-designsystem.md.
   { href: '/dashboard/reports', label: 'Rapporter', icon: ChartColumn },
   { href: '/dashboard/staff', label: 'Ansatte', icon: ShieldCheck },
-  { href: '/dashboard/log', label: 'Logg', icon: FileText },
 ] as const;
 
 export function isNavItemActive(href: string, pathname: string): boolean {

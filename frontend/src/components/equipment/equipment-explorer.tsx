@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 import { RowActionsMenu } from '@/components/row-actions-menu';
 import { StatusBadge } from '@/components/status-badge';
@@ -8,6 +7,7 @@ import { SearchInput } from '@/components/ui/search-input';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { EditEquipmentDialog } from '@/components/equipment/edit-equipment-dialog';
+import { EquipmentDetailsDialog } from '@/components/equipment/equipment-details-dialog';
 import { NewEquipmentDialog } from '@/components/equipment/new-equipment-dialog';
 import { equipmentConditionLabel, equipmentStatusInfo } from '@/lib/status-labels';
 import { normalizeSearchQuery } from '@/lib/search';
@@ -26,10 +26,10 @@ export function EquipmentExplorer({
   selectedCategoryId: string | null;
   selectedCategoryName: string | null;
 }) {
-  const router = useRouter();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null);
+  const [viewingEquipment, setViewingEquipment] = useState<Equipment | null>(null);
 
   const inCategory = useMemo(
     () => (selectedCategoryId ? equipment.filter((item) => item.categoryId === selectedCategoryId) : equipment),
@@ -64,9 +64,9 @@ export function EquipmentExplorer({
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      <div className="text-[12.5px] font-medium text-muted-foreground">
+      <h2 className="font-heading text-base leading-snug font-medium">
         {selectedCategoryName ? `Utstyr i «${selectedCategoryName}»` : 'Alt utstyr'}
-      </div>
+      </h2>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2.5">
           <SearchInput value={search} onChange={setSearch} placeholder="Søk utstyr eller serienummer…" />
@@ -106,12 +106,11 @@ export function EquipmentExplorer({
           )}
           {filtered.map((item) => {
             const { label, tone } = equipmentStatusInfo(item.status);
-            const detailHref = `/dashboard/equipment/${item.id}`;
 
             return (
               <TableRow
                 key={item.id}
-                onClick={() => router.push(detailHref)}
+                onClick={() => setViewingEquipment(item)}
                 className="cursor-pointer hover:bg-muted/40"
               >
                 <TableCell className="max-w-0 truncate font-medium">{item.name}</TableCell>
@@ -123,7 +122,7 @@ export function EquipmentExplorer({
                 </TableCell>
                 <TableCell onClick={(event) => event.stopPropagation()}>
                   <RowActionsMenu
-                    openHref={detailHref}
+                    onOpen={() => setViewingEquipment(item)}
                     onEdit={() => setEditingEquipment(item)}
                     label={`Handlinger for ${item.name}`}
                   />
@@ -133,6 +132,18 @@ export function EquipmentExplorer({
           })}
         </TableBody>
       </Table>
+
+      {viewingEquipment && (
+        <EquipmentDetailsDialog
+          equipment={viewingEquipment}
+          open
+          onOpenChange={(open) => !open && setViewingEquipment(null)}
+          onEdit={() => {
+            setEditingEquipment(viewingEquipment);
+            setViewingEquipment(null);
+          }}
+        />
+      )}
 
       {editingEquipment && (
         <EditEquipmentDialog

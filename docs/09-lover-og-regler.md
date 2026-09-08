@@ -119,19 +119,75 @@ Vurdering og tiltak:
 
 ## Lagringsbegrensning og sletting
 
-Artikkel 5 (1) e krever at opplysninger ikke lagres lenger enn nødvendig.
-Følgende rutine foreslås og avklares med oppdragsgiver:
+Artikkel 5 (1) e krever at opplysninger ikke lagres lenger enn nødvendig. Dette
+er det viktigste personvernkravet i systemet, fordi de registrerte er **barn**,
+og fordi den nærliggende løsningen - å beholde alt «for sikkerhets skyld» -
+er nettopp den artikkelen forbyr.
+
+### Tre operasjoner, ikke én slettknapp
+
+Systemet skiller mellom tre ting, se
+[ADR-0026](./adr/0026-sletting-arkivering-anonymisering.md):
+
+| Operasjon | Hva som skjer | Reversibel |
+| --- | --- | --- |
+| **Slett** | Raden fjernes helt. Kun mulig når ingenting refererer til den | Nei |
+| **Arkiver** | Skjules fra listene, alt beholdes | **Ja** |
+| **Anonymiser** | Navn og kontaktopplysninger fjernes, raden beholdes | Nei |
+
+Grunnen til at arkivering ikke er nok alene: et arkiv der navnet på et barn blir
+liggende i det uendelige, bryter artikkel 5 (1) e. **Arkivering er en pause, ikke
+en sluttstasjon.** Sluttstasjonen er anonymisering.
+
+Grunnen til at sletting ikke er nok alene: utlånshistorikken er grunnlaget for
+rapporteringen til kommunen som finansierer ordningen. Anonymisering fjerner
+personen, men beholder utlånet, slik at tallene fortsatt stemmer.
+
+### Når opplysningene skal fjernes
+
+Tre situasjoner utløser fjerning. Dette er rutinen som avklares med
+oppdragsgiver, og som ansatte utfører manuelt i grensesnittet:
+
+| Utløser | Hva som skal gjøres | Begrunnelse |
+| --- | --- | --- |
+| **Barnet fyller 19 år** | Anonymiser når siste utlån er avsluttet | Ordningen gjelder 3-18 år. Når barnet er utenfor aldersgruppen, er formålet med behandlingen oppfylt, og grunnlaget for å beholde opplysningene faller bort |
+| **Ingen aktivitet på 3 år** | Anonymiser | Et låneforhold som ikke har vært brukt på tre år er i praksis avsluttet. Tre år er valgt for å dekke et opphold i aktivitet uten at det blir vilkårlig kort |
+| **Krav om sletting (artikkel 17)** | Uten historikk: slett. Med historikk: anonymiser umiddelbart | Retten til sletting kan ikke settes til side fordi det er upraktisk. Anonymisering oppfyller kravet: personen er ikke lenger identifiserbar |
+
+Foresatte følger barna sine. En foresatt uten registrerte barn kan slettes; en
+foresatt som fortsatt har barn i systemet, anonymiseres sammen med dem.
+
+### Øvrige lagringstider
 
 | Data | Foreslått lagringstid |
 | --- | --- |
 | Aktive låneforhold | Så lenge forholdet er aktivt |
 | Avsluttede utlån | 2 år, som grunnlag for historikk og rapportering |
-| Bilder av utstyr | 6 måneder etter at lånet er avsluttet uten tvist |
-| Notater og kontaktforsøk | Slettes sammen med utlånet de hører til |
-| Låntakere uten aktivitet | Slettes eller anonymiseres etter 3 år |
+| Bilder av utstyr | Ikke aktuelt - bildefunksjonen er ikke implementert, se `14-utviklerhandbok.md` |
+| Notater om låntaker | Slettes ved anonymisering. De er fritekst og kan navngi barnet, familien eller en skole |
+| Kontaktforsøk | Slettes når foresatt anonymiseres |
 
 Rapporteringsgrunnlag beholdes i **anonymisert** form, slik at kommunen fortsatt
 kan følge utviklingen uten at personopplysninger bevares.
+
+### Hva som bevisst beholdes ved anonymisering
+
+Fødselsdatoen beholdes. Aldersgrupperapporten regner ut alderen ved lånets
+startdato fra den, og uten datoen kan ikke historiske tall regnes ut på nytt.
+En fødselsdato uten navn identifiserer ingen alene.
+
+**Restrisiko, ærlig sagt:** i en liten kommune kan fødselsdato kombinert med
+utlånsmønster i teorien peke tilbake på en person. Det er vurdert som
+akseptabelt, fordi alternativet er å miste aldersgrupperapporten kommunen
+finansierer ordningen på grunnlag av - men det er et reelt forbehold som hører
+hjemme i en DPIA.
+
+### Det som ikke er bygget
+
+**Lagringstiden håndheves ikke automatisk.** Det finnes ingen jobb som
+anonymiserer låntakere når fristene over løper ut; grensesnittet gir ansatte
+knappene, og rutinen må følges manuelt. For en produksjonssetting bør dette
+automatiseres - se gap-listen i `14-utviklerhandbok.md`.
 
 ## De registrertes rettigheter
 
@@ -141,8 +197,8 @@ Foresatte kan på vegne av barnet kreve:
 | --- | --- | --- |
 | Innsyn | 15 | Ansatt kan hente ut alle registrerte opplysninger om en låntaker |
 | Retting | 16 | Ansatt kan rette feil i navn, fødselsdato og kontaktinformasjon |
-| Sletting | 17 | Sletting av låntaker med tilhørende data, når det ikke finnes aktive lån |
-| Dataportabilitet | 20 | Eksport av opplysningene om en låntaker |
+| Sletting | 17 | Bygget. Låntaker uten historikk slettes helt; låntaker med utlånshistorikk anonymiseres, se avsnittet over |
+| Dataportabilitet | 20 | **Ikke bygget.** Det finnes ingen eksport av opplysningene om én låntaker |
 | Protest | 21 | Håndteres manuelt av oppdragsgiver |
 
 ## Informasjonssikkerhet

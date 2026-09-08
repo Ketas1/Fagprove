@@ -15,6 +15,8 @@ export type Loan = {
   returnedAt: string | null;
   daysLate: number | null;
   status: LoanStatus;
+  contactAttemptCount: number;
+  lastContactedAt: string | null;
   createdByStaffId: string | null;
   updatedByStaffId: string | null;
 };

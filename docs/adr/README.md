@@ -57,3 +57,6 @@ Manuelt: kopier [`0000-mal.md`](./0000-mal.md).
 | [0021](./0021-hierarkiske-utstyrskategorier.md) | Hierarkiske utstyrskategorier, uhåndhevet dybde, ett-siders trevisning | Akseptert |
 | [0022](./0022-emailjs-server-side.md) | Oppfølgings-e-post sendes fra backend, ikke nettleseren | Akseptert |
 | [0023](./0023-rapporteksport.md) | Rapporteksport lages i nettleseren, og inneholder bare aggregerte tall | Akseptert |
+| [0024](./0024-redigerbar-fodselsdato.md) | Fødselsdato på låntaker kan rettes etter registrering | Akseptert |
+| [0025](./0025-retting-av-apne-utlan.md) | Bare åpne utlån kan rettes, og feil utstyr frigis uten å telle som retur | Akseptert |
+| [0026](./0026-sletting-arkivering-anonymisering.md) | Tre operasjoner for å fjerne data - sletting, arkivering og anonymisering | Akseptert |

@@ -20,6 +20,8 @@ public static class BorrowerMapper
             borrower.LateReturnCount,
             borrower.IsUnreliable,
             borrower.Status,
+            borrower.ArchivedAt,
+            borrower.AnonymisedAt,
             borrower.CreatedByStaffId,
             borrower.UpdatedByStaffId);
 }

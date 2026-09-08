@@ -198,6 +198,8 @@ dotnet ef database update \
 | `AddCoreDomainEntities` | 2026-09-03 | Oppretter `Staff`, `Guardians`, `Borrowers`, `Equipment`, `Loans`, `ContactAttempts`, `Notes` og `Bans`, med relasjonene og indeksene beskrevet over. Endrer `EquipmentCategories.Id` fra `int` (identity) til `Guid`, og legger revisjonsfeltene til på alle tabeller, inkludert `EquipmentCategories`. |
 | `AddEquipmentCategoryHierarchy` | 2026-09-06 | Legger til `ParentCategoryId` (nullbar, selvrefererende `Restrict`-FK) på `EquipmentCategories`. Bytter ut den globale unike indeksen på `Name` med de to filtrerte indeksene beskrevet over. Ingen data gikk tapt - eksisterende kategorier ble toppnivå-kategorier (`ParentCategoryId = NULL`) uten videre. Se ADR-0021. |
 | `AddGuardianIdentityVerification` | 2026-09-07 | Legger til `IdentityVerifiedAt` (nullbar `timestamp with time zone`) på `Guardians` - registrerer at ansatt har bekreftet foresattes ID i butikken, se `09-lover-og-regler.md`. Ett kolonnetillegg, ingen datamigrering nødvendig. |
+| `AddStaffContactDetails` | 2026-09-08 | Legger til `JobTitle` (`varchar(100)`), `Email` (`varchar(320)`) og `Phone` (`varchar(30)`) på `Staff`, alle nullbare. Stilling er fritekst om rollen i butikken, ikke en tilgangsrolle - tilganger kommer fra Auth0, se ADR-0019. Ingen adresse lagres, se `09-lover-og-regler.md`. Tre kolonnetillegg, ingen datamigrering. |
+| `AddBorrowerAndGuardianLifecycle` | 2026-09-08 | Legger til `ArchivedAt` og `AnonymisedAt` (begge nullbare `timestamp with time zone`) på `Borrowers` og `Guardians`. Grunnlaget for arkivering (reversibel) og anonymisering (irreversibel), se ADR-0026 og lagringsbegrensningsavsnittet i `09-lover-og-regler.md`. Fire kolonnetillegg, ingen datamigrering. |
 
 ## Testdata
 

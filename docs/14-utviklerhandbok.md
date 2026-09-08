@@ -24,7 +24,10 @@ Håndboken gjør fire andre ting:
 
 ## Kom i gang
 
-Den korte veien. Detaljene, og hvorfor oppsettet er som det er, står i
+Den korte veien. **Skal du bare få det til å kjøre første gang, følg
+[`15-installasjon.md`](./15-installasjon.md)** - den tar hvert steg i
+rekkefølge, inkludert de to som er lette å hoppe over her (EF Core-verktøyet
+og migrasjonene). Detaljene, og hvorfor oppsettet er som det er, står i
 [`11-utviklingsmiljo.md`](./11-utviklingsmiljo.md).
 
 Du trenger .NET 10 SDK, Bun, Docker Desktop og en Auth0-konto.
@@ -34,8 +37,13 @@ git clone <repo> && cd Fagprove
 cp .env.example .env          # fyll inn Auth0-verdiene
 docker compose up -d db       # databasen, på vertsport 5433
 
+# Skjemaet - uten dette feiler hver side, se 15-installasjon.md
+dotnet tool install --global dotnet-ef
+cd backend && dotnet ef database update \
+  --project SportForAlle.Api --startup-project SportForAlle.Api
+
 # Backend - http://localhost:5080
-cd backend/SportForAlle.Api && dotnet run
+cd SportForAlle.Api && dotnet run
 
 # Frontend - http://localhost:3000 (eget terminalvindu)
 cd frontend && bun install && bun dev

@@ -50,14 +50,25 @@ export function CategoryTree({
   }
 
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-2">
+    // border-r is the divider between the category pane and the equipment
+    // table - the --border token, see docs/13-frontend-designsystem.md.
+    // pr-6 mirrors the workspace's gap-6, so the rule sits centred between
+    // the two panes.
+    //
+    // -my-6/py-6 bleeds the column through the 24px vertical padding on
+    // <main> in app/dashboard/layout.tsx, so the rule meets the header bar
+    // and the bottom of the viewport instead of floating 24px short of
+    // both. py-6 puts the content back where it was.
+    <div className="-my-6 flex w-64 shrink-0 flex-col gap-2 border-r py-6 pr-6">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground">
-          <FolderTree className="size-3.5" /> Kategorier
-        </div>
+        <h2 className="flex items-center gap-1.5 font-heading text-base leading-snug font-medium">
+          <FolderTree className="size-4 text-muted-foreground" />
+          Kategorier
+        </h2>
         <Button
           variant="ghost"
           size="icon-sm"
+          aria-label="Ny kategori"
           onClick={() => setDialog({ type: 'create', parentCategoryId: null, parentName: null })}
         >
           <Plus />

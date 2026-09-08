@@ -36,11 +36,7 @@ public class EquipmentService(AppDbContext dbContext, IClock clock, CurrentUserC
 
         bool duplicateSerialNumber = await dbContext.Equipment
             .AnyAsync(equipment => equipment.SerialNumber == request.SerialNumber, cancellationToken);
-
-        if (duplicateSerialNumber)
-        {
-            throw new DomainConflictException("DuplicateSerialNumber", "Serienummeret er allerede i bruk.");
-        }
+        EquipmentRules.EnsureSerialNumberIsUnique(duplicateSerialNumber);
 
         Equipment equipment = new(
             request.Name, request.SerialNumber, request.CategoryId, request.Condition, clock, currentUser.RequireStaffId());
@@ -61,9 +57,15 @@ public class EquipmentService(AppDbContext dbContext, IClock clock, CurrentUserC
             .FirstOrDefaultAsync(c => c.Id == request.CategoryId, cancellationToken)
             ?? throw new NotFoundException("Fant ikke kategori.");
 
+        bool duplicateSerialNumber = await dbContext.Equipment
+            .AnyAsync(other => other.SerialNumber == request.SerialNumber && other.Id != id, cancellationToken);
+        EquipmentRules.EnsureSerialNumberIsUnique(duplicateSerialNumber);
+
         Guid staffId = currentUser.RequireStaffId();
         equipment.Rename(request.Name, clock, staffId);
         equipment.Recategorize(request.CategoryId, clock, staffId);
+        equipment.ChangeSerialNumber(request.SerialNumber, clock, staffId);
+        equipment.ChangeCondition(request.Condition, clock, staffId);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

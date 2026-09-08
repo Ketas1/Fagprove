@@ -54,6 +54,26 @@ public class Equipment : AuditableEntity
         Touch(clock, staffId);
     }
 
+    public void ChangeSerialNumber(string serialNumber, IClock clock, Guid? staffId)
+    {
+        SerialNumber = ValidateSerialNumber(serialNumber);
+        Touch(clock, staffId);
+    }
+
+    /// <summary>
+    /// Corrects the recorded condition outside a return - a data fix, not a
+    /// state transition. <see cref="Status"/> is deliberately left alone: it
+    /// belongs to the "Utstyrstatus" arrows in docs/03-domenemodell.md
+    /// (MarkOnLoan / Return / Repair / MarkWrittenOff). Letting an edit form
+    /// move it would allow an item to be put back in circulation while it is
+    /// still out on loan.
+    /// </summary>
+    public void ChangeCondition(EquipmentCondition condition, IClock clock, Guid? staffId)
+    {
+        Condition = condition;
+        Touch(clock, staffId);
+    }
+
     /// <summary>Marks the item lent out. Only <see cref="EquipmentStatus.Available"/> equipment can be loaned.</summary>
     public void MarkOnLoan(IClock clock, Guid? staffId)
     {
@@ -71,6 +91,20 @@ public class Equipment : AuditableEntity
         RequireStatus(EquipmentStatus.Available, EquipmentStatus.OnLoan);
         Condition = condition;
         Status = condition == EquipmentCondition.Damaged ? EquipmentStatus.OutOfService : EquipmentStatus.Available;
+        Touch(clock, staffId);
+    }
+
+    /// <summary>
+    /// Puts an item back to Available because it was recorded on the wrong
+    /// loan and is being corrected off it. Deliberately not Return(): the item
+    /// was never actually handed back, so Condition must not be touched and no
+    /// return is implied. This is a correction arrow, not one of the
+    /// Utstyrstatus arrows in docs/03-domenemodell.md - see ADR-0025.
+    /// </summary>
+    public void ReleaseFromCorrectedLoan(IClock clock, Guid? staffId)
+    {
+        RequireStatus(EquipmentStatus.Available, EquipmentStatus.OnLoan);
+        Status = EquipmentStatus.Available;
         Touch(clock, staffId);
     }
 

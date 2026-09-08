@@ -24,7 +24,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   return (
-    <SidebarProvider>
+    // 13rem (208px) instead of the shadcn default of 16rem. Set here rather
+    // than in components/ui/sidebar.tsx so the primitive stays untouched -
+    // SidebarProvider spreads its own style prop after the defaults. The
+    // longest label, "Barn og foresatte", needs ~166px including icon, gap
+    // and padding, so this keeps roughly 40px of slack.
+    <SidebarProvider style={{ '--sidebar-width': '13rem' } as React.CSSProperties}>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 px-2 py-1">

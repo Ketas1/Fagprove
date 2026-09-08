@@ -18,6 +18,38 @@ public static class BorrowerRules
     /// between 3 and 18 years old. Checked once, at registration - not
     /// re-checked at loan time.
     /// </summary>
+    /// <summary>
+    /// A borrower may only be hard-deleted when nothing references them. With
+    /// loans, bans or notes attached, deleting would either break the loan
+    /// history the municipality's reports are built on, or leave orphaned
+    /// rows. Those borrowers are archived and eventually anonymised instead -
+    /// see ADR-0026 and docs/09-lover-og-regler.md.
+    /// </summary>
+    public static void EnsureCanBeDeleted(bool hasLoans, bool hasBans, bool hasNotes)
+    {
+        if (hasLoans || hasBans || hasNotes)
+        {
+            throw new DomainConflictException(
+                "BorrowerHasHistory",
+                "Låntakeren har historikk og kan ikke slettes. Arkiver eller anonymiser i stedet.");
+        }
+    }
+
+    /// <summary>
+    /// A guardian is deletable only once no borrower points at them. Business
+    /// rule 1 says a child cannot exist without a guardian, so deleting one
+    /// that is still referenced would leave a child stranded.
+    /// </summary>
+    public static void EnsureGuardianCanBeDeleted(bool hasBorrowers)
+    {
+        if (hasBorrowers)
+        {
+            throw new DomainConflictException(
+                "GuardianHasBorrowers",
+                "Foresatte er knyttet til registrerte barn og kan ikke slettes. Arkiver eller anonymiser i stedet.");
+        }
+    }
+
     public static void EnsureAgeInRange(DateOnly dateOfBirth, IClock clock)
     {
         int age = CalculateAge(dateOfBirth, clock.UtcNow);

@@ -27,6 +27,28 @@ public class StaffController(StaffService service) : ControllerBase
         return StatusCode(StatusCodes.Status201Created, response);
     }
 
+    /// <summary>
+    /// Requires a linked staff account - deliberately not
+    /// <c>[AllowUnlinkedStaff]</c>, unlike the endpoints around it. Someone
+    /// who has not yet claimed a profile has no business editing one.
+    /// </summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<StaffResponse>> UpdateAsync(
+        Guid id, UpdateStaffRequest request, CancellationToken cancellationToken) =>
+        Ok(await service.UpdateAsync(id, request, cancellationToken));
+
+    /// <summary>
+    /// Removes an employee profile. Refused with
+    /// <c>409 CannotDeleteOwnStaffProfile</c> for the caller own profile,
+    /// which would lock them out of the system entirely.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        await service.DeleteAsync(id, cancellationToken);
+        return NoContent();
+    }
+
     [AllowUnlinkedStaff]
     [HttpPost("{id:guid}/link-me")]
     public async Task<ActionResult<StaffResponse>> LinkMeAsync(Guid id, CancellationToken cancellationToken) =>

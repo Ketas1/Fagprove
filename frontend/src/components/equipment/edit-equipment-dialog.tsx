@@ -14,13 +14,18 @@ import {
 } from '@/components/ui/dialog';
 import { Combobox } from '@/components/ui/combobox';
 import { Input } from '@/components/ui/input';
-import type { Equipment, EquipmentCategory } from '@/types/equipment';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { equipmentConditionLabel } from '@/lib/status-labels';
+import type { Equipment, EquipmentCategory, EquipmentCondition } from '@/types/equipment';
 import type { ProblemDetails } from '@/types/problem-details';
 
+const CONDITIONS: EquipmentCondition[] = ['New', 'Good', 'Worn', 'Damaged'];
+
 /**
- * Only Navn and Kategori are editable - `PUT /api/equipment/{id}` does not
- * accept Tilstand, see backend/SportForAlle.Api/Dtos/Equipment/UpdateEquipmentRequest.cs.
- * A condition field here would silently claim an ability the backend doesn't have.
+ * Navn, kategori, serienummer og tilstand kan endres. **Status kan ikke** -
+ * den eies av Utstyrstatus-tilstandsmaskinen i docs/03-domenemodell.md og
+ * flyttes bare av utlån, retur, reparasjon eller avskriving. Et statusfelt
+ * her ville latt en ansatt sette utstyr som er utlånt tilbake til ledig.
  */
 export function EditEquipmentDialog({
   equipment,
@@ -36,6 +41,8 @@ export function EditEquipmentDialog({
   const router = useRouter();
   const [name, setName] = useState(equipment.name);
   const [categoryId, setCategoryId] = useState(equipment.categoryId);
+  const [serialNumber, setSerialNumber] = useState(equipment.serialNumber);
+  const [condition, setCondition] = useState<EquipmentCondition>(equipment.condition);
   const [submitting, setSubmitting] = useState(false);
   const [problem, setProblem] = useState<ProblemDetails | null>(null);
 
@@ -46,7 +53,7 @@ export function EditEquipmentDialog({
     const response = await fetch(`/api/equipment/${equipment.id}`, {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ name, categoryId }),
+      body: JSON.stringify({ name, categoryId, serialNumber, condition }),
     });
 
     setSubmitting(false);
@@ -66,7 +73,9 @@ export function EditEquipmentDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Rediger utstyr</DialogTitle>
-          <DialogDescription>Navn og kategori kan endres. Serienummer og tilstand kan ikke.</DialogDescription>
+          <DialogDescription>
+            Status endres ikke her - den følger av utlån, retur og avskriving.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-4">
@@ -97,13 +106,44 @@ export function EditEquipmentDialog({
               emptyText="Ingen kategorier funnet."
             />
           </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12.5px] font-medium text-muted-foreground">
+              Serienummer <span className="text-status-danger-fg">*</span>
+            </label>
+            <Input value={serialNumber} onChange={(event) => setSerialNumber(event.target.value)} />
+            <p className="text-[11.5px] text-muted-foreground">
+              Må være unikt. Er nummeret allerede i bruk, avvises lagringen.
+            </p>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12.5px] font-medium text-muted-foreground">
+              Tilstand <span className="text-status-danger-fg">*</span>
+            </label>
+            <Select value={condition} onValueChange={(value) => setCondition(value as EquipmentCondition)}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {CONDITIONS.map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {equipmentConditionLabel(value)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Avbryt
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting || !name.trim() || !categoryId}>
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting || !name.trim() || !categoryId || !serialNumber.trim()}
+          >
             <Check /> {submitting ? 'Lagrer …' : 'Lagre'}
           </Button>
         </DialogFooter>

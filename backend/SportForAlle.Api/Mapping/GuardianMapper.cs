@@ -12,6 +12,8 @@ public static class GuardianMapper
             guardian.Email,
             guardian.Phone,
             guardian.IdentityVerifiedAt,
+            guardian.ArchivedAt,
+            guardian.AnonymisedAt,
             guardian.CreatedByStaffId,
             guardian.UpdatedByStaffId);
 }

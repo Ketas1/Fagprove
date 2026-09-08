@@ -27,7 +27,9 @@ public class Loan : AuditableEntity
             throw new ArgumentException("Loan due date must be after the start date.", nameof(dueDate));
         }
 
-        DueDate = dueDate;
+        // Normalised to UTC: the instant is unchanged, but Npgsql refuses to
+        // write any offset other than 0 to a 'timestamp with time zone'.
+        DueDate = dueDate.ToUniversalTime();
         Status = LoanStatus.Active;
     }
 
@@ -92,6 +94,42 @@ public class Loan : AuditableEntity
         ReturnedAt = now;
         DaysLate = now.UtcDateTime.Date > DueDate.UtcDateTime.Date ? (now.UtcDateTime.Date - DueDate.UtcDateTime.Date).Days : 0;
         Status = LoanStatus.Returned;
+        Touch(clock, staffId);
+    }
+
+    /// <summary>
+    /// Corrects the facts of an open loan that was registered wrongly. Only
+    /// Active and Overdue loans may be corrected - RequireOpen() refuses a
+    /// Returned or Lost one, because DaysLate and the borrower's late-return
+    /// counter were already computed from the old values and cannot be
+    /// recomputed from here. See ADR-0025.
+    ///
+    /// Status is reset to Active and then re-derived by the caller through
+    /// RefreshOverdueStatus, so extending a due date past today moves an
+    /// Overdue loan back to Active rather than leaving it stale.
+    /// </summary>
+    public void Correct(
+        Guid borrowerId,
+        Guid equipmentId,
+        DateTimeOffset startedAt,
+        DateTimeOffset dueDate,
+        IClock clock,
+        Guid? staffId)
+    {
+        RequireOpen();
+
+        if (dueDate <= startedAt)
+        {
+            throw new ArgumentException("Loan due date must be after the start date.", nameof(dueDate));
+        }
+
+        BorrowerId = borrowerId;
+        EquipmentId = equipmentId;
+
+        // Same UTC normalisation as the constructor - see the comment there.
+        StartedAt = startedAt.ToUniversalTime();
+        DueDate = dueDate.ToUniversalTime();
+        Status = LoanStatus.Active;
         Touch(clock, staffId);
     }
 

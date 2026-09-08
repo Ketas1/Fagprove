@@ -28,6 +28,77 @@ public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserCo
         return BorrowerMapper.ToResponse(row.Borrower, row.GuardianName);
     }
 
+    /// <summary>
+    /// Hard delete, only for a borrower nothing references. Anything with
+    /// loans, bans or notes is archived and later anonymised instead - see
+    /// ADR-0026.
+    /// </summary>
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+        bool hasLoans = await dbContext.Loans.AnyAsync(loan => loan.BorrowerId == id, cancellationToken);
+        bool hasBans = await dbContext.Bans.AnyAsync(ban => ban.BorrowerId == id, cancellationToken);
+        bool hasNotes = await dbContext.Notes.AnyAsync(note => note.BorrowerId == id, cancellationToken);
+
+        BorrowerRules.EnsureCanBeDeleted(hasLoans, hasBans, hasNotes);
+
+        dbContext.Borrowers.Remove(borrower);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<BorrowerResponse> ArchiveAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await FindBorrowerAsync(id, cancellationToken);
+        borrower.Archive(clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await ToResponseAsync(borrower, cancellationToken);
+    }
+
+    public async Task<BorrowerResponse> RestoreAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await FindBorrowerAsync(id, cancellationToken);
+        borrower.Restore(clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await ToResponseAsync(borrower, cancellationToken);
+    }
+
+    /// <summary>
+    /// Answers an article 17 erasure request for a borrower who has history:
+    /// the identifying data goes, the loan rows stay countable. The free-text
+    /// notes are deleted outright rather than anonymised - they are prose and
+    /// can name the child, the family or a school.
+    /// </summary>
+    public async Task<BorrowerResponse> AnonymiseAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Borrower borrower = await FindBorrowerAsync(id, cancellationToken);
+
+        List<Note> notes = await dbContext.Notes
+            .Where(note => note.BorrowerId == id)
+            .ToListAsync(cancellationToken);
+        dbContext.Notes.RemoveRange(notes);
+
+        borrower.Anonymise(clock, currentUser.RequireStaffId());
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return await ToResponseAsync(borrower, cancellationToken);
+    }
+
+    private async Task<Borrower> FindBorrowerAsync(Guid id, CancellationToken cancellationToken) =>
+        await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke låntaker.");
+
+    private async Task<BorrowerResponse> ToResponseAsync(Borrower borrower, CancellationToken cancellationToken)
+    {
+        Guardian guardian = await dbContext.Guardians
+            .FirstAsync(g => g.Id == borrower.GuardianId, cancellationToken);
+
+        return BorrowerMapper.ToResponse(borrower, guardian.Name);
+    }
+
     public async Task<BorrowerResponse> CreateAsync(CreateBorrowerRequest request, CancellationToken cancellationToken)
     {
         bool linksExistingGuardian = request.GuardianId.HasValue;
@@ -73,7 +144,9 @@ public class BorrowerService(AppDbContext dbContext, IClock clock, CurrentUserCo
         Borrower borrower = await dbContext.Borrowers.FirstOrDefaultAsync(b => b.Id == id, cancellationToken)
             ?? throw new NotFoundException("Fant ikke låntaker.");
 
-        borrower.Rename(request.Name, clock, currentUser.RequireStaffId());
+        Guid editorId = currentUser.RequireStaffId();
+        borrower.Rename(request.Name, clock, editorId);
+        borrower.ChangeDateOfBirth(request.DateOfBirth, clock, editorId);
         await dbContext.SaveChangesAsync(cancellationToken);
 
         Guardian guardian = await dbContext.Guardians.FirstAsync(g => g.Id == borrower.GuardianId, cancellationToken);

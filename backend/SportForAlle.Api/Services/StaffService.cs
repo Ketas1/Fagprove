@@ -22,9 +22,43 @@ public class StaffService(AppDbContext dbContext, IClock clock, CurrentUserConte
 
     public async Task<StaffResponse> CreateAsync(CreateStaffRequest request, CancellationToken cancellationToken)
     {
-        Staff staff = new(request.Name, clock);
+        Staff staff = new(request.Name, clock, request.JobTitle, request.Email, request.Phone);
 
         dbContext.Staff.Add(staff);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return StaffMapper.ToResponse(staff);
+    }
+
+    /// <summary>
+    /// Edits a colleague's profile. Auth0UserId is not touched here - linking
+    /// stays owner-driven through LinkMeAsync, so editing a profile can never
+    /// hand someone else's account to a different person.
+    /// </summary>
+    /// <summary>
+    /// Removes an employee profile. The audit columns on every entity point at
+    /// Staff with ON DELETE SET NULL, so historical rows survive with an
+    /// unknown author rather than disappearing. Deleting the profile the
+    /// caller is signed in as is refused - see StaffRules.
+    /// </summary>
+    public async Task DeleteAsync(Guid id, CancellationToken cancellationToken)
+    {
+        Staff staff = await dbContext.Staff.FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke ansatt.");
+
+        StaffRules.EnsureNotDeletingOwnProfile(staff, currentUser.Auth0Subject);
+
+        dbContext.Staff.Remove(staff);
+        await dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    public async Task<StaffResponse> UpdateAsync(
+        Guid id, UpdateStaffRequest request, CancellationToken cancellationToken)
+    {
+        Staff staff = await dbContext.Staff.FirstOrDefaultAsync(s => s.Id == id, cancellationToken)
+            ?? throw new NotFoundException("Fant ikke ansatt.");
+
+        staff.Update(request.Name, request.JobTitle, request.Email, request.Phone, clock, currentUser.RequireStaffId());
         await dbContext.SaveChangesAsync(cancellationToken);
 
         return StaffMapper.ToResponse(staff);

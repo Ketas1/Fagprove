@@ -6,5 +6,5 @@ namespace SportForAlle.Api.Mapping;
 public static class StaffMapper
 {
     public static StaffResponse ToResponse(Staff staff) =>
-        new(staff.Id, staff.Name, staff.Auth0UserId);
+        new(staff.Id, staff.Name, staff.JobTitle, staff.Email, staff.Phone, staff.Auth0UserId);
 }

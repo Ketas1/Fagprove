@@ -11,5 +11,7 @@ public record BorrowerResponse(
     int LateReturnCount,
     bool IsUnreliable,
     BorrowerStatus Status,
+    DateTimeOffset? ArchivedAt,
+    DateTimeOffset? AnonymisedAt,
     Guid? CreatedByStaffId,
     Guid? UpdatedByStaffId);
